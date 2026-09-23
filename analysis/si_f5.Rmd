@@ -1,0 +1,1102 @@
+---
+title: "si_f5"
+author: "Bertil Sørensen"
+date: "2026-09-15"
+output: html_document
+---
+
+
+
+# directories
+```{r}
+project_dir = path.expand("~/Desktop/pfd_github")
+data_dir = file.path(project_dir, "data")
+figure_dir = file.path(project_dir, "figures")
+```
+
+# packages 
+```{r}
+library(tidyr)
+library(tibble)
+library(purrr)
+library(future)
+library(furrr)
+library(stringr)
+library(readxl)
+library(readr)
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(ggtext)
+library(patchwork)
+library(scales)
+library(grid)
+```
+
+# data frames
+```{r}
+pfd_md = fread(file.path(data_dir, "pfd_md_26_09_15.tsv"))
+pfd_md2 = pfd_md %>%
+  distinct(representative, .keep_all = T) %>%
+  mutate(
+    mobs_Name = str_replace_all(mobs_Name, ",\\s*", ", "), # correct this tomorrow
+    args = str_replace_all(args, ",\\s*", ", "),
+    MGEs = str_replace_all(MGEs, ";\\s*", ", ")
+   ) #%>%
+  #filter(db == "MFD") # uncomment to filter for mfd
+  
+ptu = pfd_md2 %>%
+  mutate(ptu = na_if(ptu, "")) %>%
+  filter(!is.na(ptu)) %>%
+  select(representative, ptu, mobs_Name, reps, args, replicon_type, defense_type, defense_subtype, taxa_gtdb, st_hab1) %>%
+  filter(!is.na(ptu)) %>%
+  group_by(ptu) %>%
+  mutate(ptu_size = n()) %>% 
+  ungroup() %>%
+  filter(ptu_size >= 2)
+  
+dptu = pfd_md2 %>%
+  mutate(ptu = na_if(ptu, "")) %>%
+  filter(!is.na(dptu)) %>%
+  select(representative, dptu, mobs_Name, reps, args, replicon_type, defense_type, defense_subtype, taxa_gtdb, st_hab1) %>%
+  filter(!is.na(dptu)) %>%
+  group_by(dptu) %>%
+  mutate(dptu_size = n()) %>% 
+  ungroup() %>%
+  filter(dptu_size >= 2)
+```
+
+<!-- # reps filter -->
+<!-- ```{r} -->
+<!-- reps_filter = pfd_md2 %>% -->
+<!--   separate_rows(reps, sep = ",\\s*") %>% -->
+<!--   filter(reps %in% c( -->
+<!--     "rep3_1", -->
+<!--     "rep3_2", -->
+<!--     "IncFII_repA", -->
+<!--     "repB2_RCR", -->
+<!--     "rep1", -->
+<!--     "pri", -->
+<!--     "repD/Rep_trans", -->
+<!--     "repB1_HUH", -->
+<!--     "orc" -->
+<!--   )) %>% -->
+<!--   select(representative, reps) %>% -->
+<!--   group_by(representative) %>% -->
+<!--   mutate(reps = paste(unique(na.omit(reps)), collapse = ", ")) %>% -->
+<!--   ungroup() %>% -->
+<!--   distinct(representative, .keep_all = T) -->
+
+<!-- pfd_md2 = pfd_md2 %>% -->
+<!--   select(-reps) %>% -->
+<!--   left_join(reps_filter, by = "representative") -->
+<!-- ``` -->
+
+
+# rps (no na)
+```{r}
+rps_no_na = pfd_md2 %>%
+  filter(!is.na(rps)) %>%
+  select(representative, ptu, dptu, rps)
+```
+
+<!-- # rips (no na) -->
+<!-- ```{r} -->
+<!-- rips_no_na = pfd_md2 %>% -->
+<!--   filter(!is.na(rips)) %>% -->
+<!--   select(representative, ptu, dptu, rips) -->
+
+<!-- ``` -->
+
+# args (no na)
+```{r}
+args_no_na = pfd_md2 %>%
+  filter(!is.na(args)) %>%
+  select(representative, ptu, dptu, args)
+```
+
+<!-- # args family -->
+<!-- ```{r} -->
+<!-- args_grouped = args_no_na %>% -->
+<!--   separate_rows(args, sep = ",\\s*") %>% -->
+<!--   group_by(args) %>% -->
+<!--   summarise(count = n()) -->
+
+<!-- args_group = args_grouped %>% -->
+<!--   mutate( -->
+<!--     args_group = case_when( -->
+<!--       str_detect(args, regex("^(AAC|ANT|APH|aad|arm|rmt|npm|spw|str|sat)", ignore_case = TRUE)) ~ "Aminoglycoside", -->
+
+<!--       str_detect(args, regex("^(ACC|ACI|ADC|AER|AFM|BEL|BES|BIM|BJP|BKC|BRP|BcI|CARB|CAE|Cbl|Cep|Cfx|Cfi|CMY|CTX|DHA|DIM|EBR|EC-|Ecol_ampC|FOX|FRI|GES|GIM|GMA|GOB|HER|IMI|IMP|IND|KHM|KPC|LAP|LCR|LEN|LMB|LRA|MIR|MOX|NDM|NMC|OCH|OIH|OKP|OXA|PC1|PDC|PER|POM|ROB|SED|SFC|SFO|SHV|SIM|SMB|SME|SPM|TEM|TLA|TMB|TOHO|VEB|VIM|VMB|VHH|YIM|bla|cphA|pen|mec|pbp|amp)", ignore_case = TRUE)) ~ "Beta-lactam", -->
+
+<!--       str_detect(args, regex("^(tet|otr|Cstr_tet|tcr|tmex)", ignore_case = TRUE)) ~ "Tetracycline", -->
+
+<!--       str_detect(args, regex("^(erm|ere|mph|mef|msr|lnu|lsa|vga|vat|vgb|ole|pik|srm|tlr|car|mel|lin)", ignore_case = TRUE)) ~ "MLS", -->
+
+<!--       str_detect(args, regex("^(van|vra|tva)", ignore_case = TRUE)) ~ "Glycopeptide", -->
+
+<!--       str_detect(args, regex("^sul", ignore_case = TRUE)) ~ "Sulfonamide", -->
+
+<!--       str_detect(args, regex("^dfr", ignore_case = TRUE)) ~ "Trimethoprim", -->
+
+<!--       str_detect(args, regex("^(qnr|qep|oqx|crpP|AAC\\(6'\\)-Ib-cr|pat|gyr|par|nor)", ignore_case = TRUE)) ~ "Quinolone", -->
+
+<!--       str_detect(args, regex("^(cat|pp_cat|cml|flo|pp-flo|fex|cmx|pex|.*ACT_CHL)", ignore_case = TRUE)) ~ "Phenicol", -->
+
+<!--       str_detect(args, regex("^(arr|rpoB|RbpA|iri|rif)", ignore_case = TRUE)) ~ "Rifamycin", -->
+
+<!--       str_detect(args, regex("^(fos|murA)", ignore_case = TRUE)) ~ "Fosfomycin", -->
+
+<!--       str_detect(args, regex("^(mup|Saur_mupA|ileS)", ignore_case = TRUE)) ~ "Mupirocin", -->
+
+<!--       str_detect(args, regex("^(MCR|mcr|pmr|arn|ept|ugd|lpx|mgrB|bas|lps|lpt)", ignore_case = TRUE)) ~ "Polymyxin/colistin", -->
+
+<!--       str_detect(args, regex("^(bac|bcr|bce)", ignore_case = TRUE)) ~ "Bacitracin", -->
+
+<!--       str_detect(args, regex("^(acr|Acr|Abau_|amv|abe|ade|axy|emr|mdf|mdt|mex|mac|mux|mtr|kpn|qac|tolC|H-NS|crp|mar|sox|rob|ram|YojI|evg|cpx|kdp|mds|ceo|lmr|far)", ignore_case = TRUE)) ~ "Multidrug/efflux/regulator", -->
+
+<!--       str_detect(args, regex("^fus", ignore_case = TRUE)) ~ "Fusidic acid", -->
+
+<!--       str_detect(args, regex("^nim", ignore_case = TRUE)) ~ "Nitroimidazole", -->
+
+<!--       str_detect(args, regex("^(optrA|poxtA|cfr)", ignore_case = TRUE)) ~ "Oxazolidinone/phenicol/pleuromutilin", -->
+
+<!--       TRUE ~ "Other/unclassified" -->
+<!--     ) -->
+<!--   )  -->
+
+<!-- args_family = args_grouped %>% -->
+<!--   mutate( -->
+<!--     args_family = case_when( -->
+<!--       str_detect(args, "^VIM-") ~ "VIM", -->
+<!--       str_detect(args, "^VMB-") ~ "VMB", -->
+<!--       str_detect(args, "^VHH-") ~ "VHH", -->
+
+<!--       str_detect(args, "^OXA-") ~ "OXA", -->
+<!--       str_detect(args, "^NDM-") ~ "NDM", -->
+<!--       str_detect(args, "^KPC-") ~ "KPC", -->
+<!--       str_detect(args, "^CTX-M") ~ "CTX-M", -->
+<!--       str_detect(args, "^TEM-") ~ "TEM", -->
+<!--       str_detect(args, "^SHV-") ~ "SHV", -->
+<!--       str_detect(args, "^IMP-") ~ "IMP", -->
+
+<!--       str_detect(args, "^AAC") ~ "AAC", -->
+<!--       str_detect(args, "^APH") ~ "APH", -->
+<!--       str_detect(args, "^ANT") ~ "ANT", -->
+<!--       str_detect(args, "^aadA") ~ "aadA", -->
+
+<!--       str_detect(args, "^tet") ~ "tet", -->
+<!--       str_detect(args, "^erm") ~ "erm", -->
+<!--       str_detect(args, "^mph") ~ "mph", -->
+<!--       str_detect(args, "^lnu") ~ "lnu", -->
+<!--       str_detect(args, "^sul") ~ "sul", -->
+<!--       str_detect(args, "^dfr") ~ "dfr", -->
+<!--       str_detect(args, "^qnr") ~ "qnr", -->
+
+<!--       TRUE ~ str_replace(args, "-\\d+$", "") -->
+<!--     ) -->
+<!--   ) -->
+
+<!-- args_no_na2 = args_no_na %>% -->
+<!--   separate_rows(args, sep = ",\\s*") %>% -->
+<!--   left_join(args_group %>% select(-count), by = "args") %>% -->
+<!--   left_join(args_family %>% select(-count), by = "args") %>% -->
+<!--   group_by(representative) %>% -->
+<!--   summarise( -->
+<!--     args = paste(unique(na.omit(args)), collapse = ", "), -->
+<!--     args_family = paste(unique(na.omit(args_family)), collapse = ", "), -->
+<!--     args_group = paste(unique(na.omit(args_group)), collapse = ", "), -->
+<!--     .groups = "drop" -->
+<!--   ) %>%  -->
+<!--   ungroup() %>% right_join(pfd_md2 %>% select(representative, ptu, dptu)) %>% -->
+<!--   filter(!is.na(args)) -->
+
+<!-- ``` -->
+
+# defense (no na)
+```{r}
+defense_no_na = pfd_md2 %>%
+  filter(!is.na(defense_type)) %>%
+  select(representative, ptu, dptu, defense_type, defense_subtype)
+```
+
+# mrg (no na)
+```{r}
+mrg_no_na = pfd_md2 %>%
+  distinct(representative, .keep_all = T) %>% select(representative, mrg_gene, mrg_id) %>%
+  filter(!is.na(mrg_id)) 
+```
+
+<!-- # mrg family -->
+<!-- ```{r} -->
+<!-- mrg_grouped = mrg_no_na %>% -->
+<!--   separate_rows(mrg_gene, sep = ",\\s*") %>% -->
+<!--   group_by(mrg_gene) %>% -->
+<!--   summarise(count = n()) -->
+
+
+<!-- mrg_group = mrg_grouped %>% -->
+<!--   mutate( -->
+<!--     mrg_group = case_when( -->
+<!--       str_detect(mrg_gene, regex("^(ars|aio|aox|asr|acr3|glpF)", ignore_case = TRUE)) ~ "Arsenic", -->
+<!--       str_detect(mrg_gene, regex("^(mer)", ignore_case = TRUE)) ~ "Mercury", -->
+<!--       str_detect(mrg_gene, regex("^(cop|pco|cue|cus|cut|crd|cui|csoR)", ignore_case = TRUE)) ~ "Copper", -->
+<!--       str_detect(mrg_gene, regex("^(czc|znt|znu|zin|zit|zia|zip|zup|zur|zne|czr|yodA|rcn|ncc|cnr|ncr|ncz|cad|pbr)", ignore_case = TRUE)) ~ "Zinc/cadmium/lead/nickel/cobalt", -->
+<!--       str_detect(mrg_gene, regex("^(nik|nix|hoxN|hup|nre|nrs|rcn)", ignore_case = TRUE)) ~ "Nickel/cobalt", -->
+<!--       str_detect(mrg_gene, regex("^(chr)", ignore_case = TRUE)) ~ "Chromium", -->
+<!--       str_detect(mrg_gene, regex("^(ter|teh|kla|tbt)", ignore_case = TRUE)) ~ "Tellurium", -->
+<!--       str_detect(mrg_gene, regex("^(sil)", ignore_case = TRUE)) ~ "Silver", -->
+<!--       str_detect(mrg_gene, regex("^(cor|mgt)", ignore_case = TRUE)) ~ "Magnesium/cobalt", -->
+<!--       str_detect(mrg_gene, regex("^(mnt|sit|tro|yfe|sod|dps|dpr|bfr|perR)", ignore_case = TRUE)) ~ "Manganese/iron", -->
+<!--       str_detect(mrg_gene, regex("^(fec|fep|fet|fie|fbp|fpt|fpv|has|pfr|ybt)", ignore_case = TRUE)) ~ "Iron", -->
+<!--       str_detect(mrg_gene, regex("^(mod|tup|wtp)", ignore_case = TRUE)) ~ "Molybdate/tungstate", -->
+<!--       str_detect(mrg_gene, regex("^(pst|pit)", ignore_case = TRUE)) ~ "Phosphate-linked metal response", -->
+
+<!--       str_detect(mrg_gene, regex("^(acr|ade|abe|amv|bcr|bep|bex|blt|bmr|cde|cme|dme|ebr|eef|eme|emh|emr|far|kde|kex|kmr|kpn|lde|lmr|mde|mdf|mdr|mdt|mep|mex|mtr|nor|oqx|opr|qac|sde|sme|smr|smv|srp|sug|tolC|tri|ttg|vce|vcm|vcr|vex|vme|vmr)", ignore_case = TRUE)) ~ "Efflux/multidrug-associated", -->
+
+<!--       str_detect(mrg_gene, regex("^(bae|mar|rob|sox|oxy|pmr|rpoS|iclR|perO|qrg|ricR|hsmR)", ignore_case = TRUE)) ~ "Regulatory/stress response", -->
+
+<!--       TRUE ~ "Other/unclassified" -->
+<!--     ) -->
+<!--   ) -->
+
+
+<!-- mrg_no_na2 = mrg_no_na %>% -->
+<!--   separate_rows(mrg_gene, sep = ",\\s*") %>% -->
+<!--   left_join(mrg_group %>% select(-count), by = "mrg_gene") %>% -->
+<!--   group_by(representative) %>% -->
+<!--   summarise( -->
+<!--     mrg_id = paste(unique(na.omit(mrg_id)), collapse = ", "), -->
+<!--     mrg_gene = paste(unique(na.omit(mrg_gene)), collapse = ", "), -->
+<!--     mrg_group = paste(unique(na.omit(mrg_group)), collapse = ", "), -->
+<!--     .groups = "drop" -->
+<!--   ) %>% -->
+<!--   ungroup() %>% -->
+<!--   right_join(pfd_md2 %>% select(representative, ptu, dptu), by = "representative") %>% -->
+<!--   filter(!is.na(mrg_id))  -->
+<!-- ``` -->
+
+
+# mobs (no na)
+```{r}
+mobs_no_na = pfd_md2 %>%
+  filter(!is.na(mobs_Name)) %>%
+  select(representative, ptu, dptu, mobs_Name)
+
+```
+
+
+
+# sylph quantification (no na)
+```{r}
+sylph = fread(file.path(data_dir, "260921_sylph.tsv")) %>% 
+  filter(origin == "plasmid")
+
+  sylph2 = sylph %>%
+    filter(rel_abund > 0) 
+
+mfd_meta = read_excel(file.path(data_dir, "2025-05-28_mfd_db.xlsx"))
+
+sylph_no_na = sylph2 %>% 
+  mutate(
+    st_hab1 = str_replace_all(st_hab1, "Bogs, mires and fens", "Bogs mires and fens")
+  ) %>%
+  group_by(representative) %>%
+  summarise(
+    st_hab1 = paste(unique(na.omit(st_hab1)), collapse = ", "),
+    .groups = "drop"
+  ) %>%
+  ungroup() %>%
+  inner_join(pfd_md2 %>% select(representative, ptu, dptu), by = "representative") 
+```
+
+# st_hab1 restricted to sample assembled from (no na)
+```{r}
+sylph_sample = pfd_md %>%
+  separate_rows(member_id, sep = ",\\s*") %>%
+  filter(!is.na(st_hab1)) %>%
+  mutate(
+    st_hab1 = str_replace_all(st_hab1, "Bogs, mires and fens", "Bogs mires and fens")
+  ) %>%
+  select(representative, ptu, dptu, st_hab1) %>%
+  group_by(representative) %>%
+  mutate(st_hab1 = paste(unique(na.omit(st_hab1)), collapse = ", ")) %>%
+  ungroup() %>%
+  distinct(representative, .keep_all = T)
+```
+
+# taxa (no na)
+```{r}
+taxa = pfd_md2 %>%
+  select(representative, ptu, dptu, taxa_gtdb) %>%
+  separate(
+    taxa_gtdb,
+    into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
+    sep = ";",
+    fill = "right",
+    remove = FALSE
+  ) %>%
+    filter(!str_detect(Domain, "root"))
+
+
+taxa_domain = taxa %>%
+  select(representative, ptu, dptu, Domain) %>%
+  filter(!is.na(Domain)) 
+
+taxa_phylum = taxa %>%
+  select(representative, ptu, dptu, Phylum) %>%
+  filter(!is.na(Phylum))
+
+taxa_class = taxa %>%
+  select(representative, ptu, dptu, Class) %>%
+  filter(!is.na(Class))
+
+taxa_order = taxa %>%
+  select(representative, ptu, dptu, Order) %>%
+  filter(!is.na(Order))
+
+taxa_family = taxa %>%
+  select(representative, ptu, dptu, Family) %>%
+  filter(!is.na(Family))
+
+taxa_genus = taxa %>%
+  select(representative, ptu, dptu, Genus) %>%
+  filter(!is.na(Genus))
+
+taxa_species = taxa %>%
+  select(representative, ptu, dptu, Species) %>%
+  filter(!is.na(Species))
+```
+
+# replicon subtype
+```{r}
+replicon_family = function(x) {
+  x = as.character(x)
+  if (is.na(x) || !nzchar(x)) return(NA_character_)
+
+  toks = unlist(strsplit(x, "[,;\\s]+"))
+  toks = toks[nzchar(toks)]
+  # strip parentheses payloads like IncFII(pHN7A8) -> IncFII, p0111(something) -> p0111
+  toks = sub("\\(.*?\\)", "", toks)
+
+  map_token = function(tok) {
+    tl = tolower(tok)
+
+    # special fixes
+    if (tl %in% c("fii","fia")) return("IncF")
+    if (tl %in% c("inca/c","incc","inca/c2")) return("IncC")
+    if (tl == "incl/m") return("IncL/M")
+    if (grepl("eudo\\)$", tok, ignore.case = TRUE)) return("IncF")
+
+    # IncB/O/K/Z superfamily
+    if (tl %in% c("incb","inck","inco","incz","incb/ok/z")) return("IncB/O/K/Z")
+
+    # Col-like
+    if (startsWith(tl, "col")) return("Col")
+
+    # Standard Inc families (collapse to family)
+    if (startsWith(tl, "incf"))  return("IncF")
+    if (startsWith(tl, "inci"))  return("IncI")
+    if (startsWith(tl, "inchi")) return("IncHI")
+    if (startsWith(tl, "incn"))  return("IncN")
+    if (startsWith(tl, "incp"))  return("IncP")
+    if (startsWith(tl, "incq"))  return("IncQ")
+    if (startsWith(tl, "incx"))  return("IncX")
+    if (startsWith(tl, "incl"))  return("IncL")
+    if (startsWith(tl, "incm"))  return("IncM")
+    if (startsWith(tl, "inct"))  return("IncT")
+    if (startsWith(tl, "incu"))  return("IncU")
+    if (startsWith(tl, "incw"))  return("IncW")
+    if (startsWith(tl, "incy"))  return("IncY")
+    if (startsWith(tl, "incr"))  return("IncR")
+
+    # Rep* (keep coarse bucket)
+    if (startsWith(tl, "rep"))   return("Rep")
+
+    # pXXXX (DO NOT collapse to "p"; group as subtype-like)
+    # e.g. p0111 -> p0111-like, pSM22 -> pSM22-like
+    if (grepl("^p[0-9A-Za-z]", tok)) return(paste0(tok, "-like"))
+
+    # keep token if nothing matches
+    tok
+  }
+
+  out = vapply(toks, map_token, character(1))
+  out = out[!duplicated(out)]
+  if (length(out) == 0) return(NA_character_)
+  paste(out, collapse = ",")
+}
+
+replicon_subtype = function(x) {
+  x = as.character(x)
+  if (is.na(x) || !nzchar(x)) return(NA_character_)
+
+  # remove parentheses payload before splitting
+  x = gsub("\\(.*?\\)", "", x)
+
+  toks = unlist(strsplit(x, "[,;\\s]+"))
+  toks = toks[nzchar(toks)]
+
+  out = unique(toks)
+  if (length(out) == 0) return(NA_character_)
+
+  paste(out, collapse = ",")
+}
+```
+
+# replicons
+```{r}
+replicons = pfd_md2 %>%
+  select(representative, ptu, dptu, replicon_type) %>%
+  separate_rows(replicon_type, sep = ",\\s*") %>%
+  mutate(
+    replicon_family = sapply(replicon_type, replicon_family),
+    replicon_subtype = sapply(replicon_type, replicon_subtype)
+  ) %>%
+  mutate(
+    replicon_broad = case_when(
+      is.na(replicon_family) ~ NA_character_,
+      replicon_family == "Col" ~ "Col-like small-plasmid replicons",
+      replicon_family %in% c(
+        "IncF", "IncHI", "IncI", "IncL/M", "IncN", "IncR",
+        "IncX", "IncY", "IncC", "IncB/O/K/Z"
+      ) ~ "Enterobacterales-associated Inc replicons",
+      replicon_family %in% c("IncP", "IncQ", "IncW", "IncU", "IncT") ~
+        "Broad-host-range / other Inc replicons",
+      replicon_family == "Rep" |
+        str_detect(replicon_family, "^p.+-like$") ~
+        "Rep/p-type replicons",
+      TRUE ~ "Other"
+    )
+  ) %>%
+  group_by(representative) %>%
+  summarise(
+    replicon_type = paste(unique(na.omit(replicon_type)), collapse = ", "),
+    replicon_family = paste(unique(na.omit(replicon_family)), collapse = ", "),
+    replicon_subtype = paste(unique(na.omit(replicon_subtype)), collapse = ", "),
+    replicon_broad = paste(unique(na.omit(replicon_broad)), collapse = ", "),
+    .groups = "drop"
+  ) %>% 
+  ungroup() %>% right_join(pfd_md2 %>% select(representative, ptu, dptu))
+```
+
+# replicons (no na)
+```{r}
+replicons_no_na = replicons %>%
+  filter(!is.na(replicon_type), trimws(replicon_type) != "") 
+```
+
+
+# img/pr environment (no na)
+```{r}
+imgpr = fread(file.path(data_dir, "IMGPR_plasmid_data.tsv")) 
+imgpr2 = imgpr %>% 
+  select(plasmid_id, ecosystem) %>%
+  rename(member_id = plasmid_id) %>%
+  right_join(pfd_md %>% select(member_id, representative, ptu, dptu), by = "member_id") %>%
+   mutate(
+    ecosystem = trimws(ecosystem),
+    ecosystem = na_if(ecosystem, "")
+  ) %>%
+  mutate(
+    environment = case_when(
+      is.na(ecosystem) ~ NA_character_,
+      str_detect(ecosystem, "^Host-associated;Mammals: Human") ~ "Host-associated; Mammals: Human",
+      str_detect(ecosystem, "^Host-associated;Mammals") ~ "Host-associated; Mammals",
+      str_detect(ecosystem, "^Host-associated;Arthropoda: Insects") ~ "Host-associated; Arthropoda: Insects",
+      str_detect(ecosystem, "^Host-associated;Plants") ~ "Host-associated; Plants",
+      str_detect(ecosystem, "^Environmental;Aquatic;Marine") ~ "Environmental; Aquatic; Marine",
+      str_detect(ecosystem, "^Environmental;Aquatic;Freshwater") ~ "Environmental; Aquatic; Freshwater",
+      str_detect(ecosystem, "^Environmental;Aquatic;Non-marine Saline and Alkaline") ~ 
+        "Environmental; Aquatic; Non-marine Saline and Alkaline",
+      str_detect(ecosystem, "^Environmental;Terrestrial;Soil") ~ "Environmental; Terrestrial; Soil",
+      str_detect(ecosystem, "^Engineered;Bioreactor") ~ "Engineered; Bioreactor",
+      str_detect(ecosystem, "^Engineered;Built environment") ~ "Engineered; Built environment",
+      str_detect(ecosystem, "^Engineered;Wastewater|^Engineered;WWTP") ~ "Engineered; Wastewater / WWTP",
+      TRUE ~ "Other"
+    )
+  ) %>%
+  filter(!is.na(ecosystem)) %>%
+  group_by(representative) %>%
+  mutate(ecosystem = paste(unique(na.omit(ecosystem)), collapse = ", ")) %>%
+  mutate(environment = paste(unique(na.omit(environment)), collapse = ", ")) %>%
+  ungroup() %>%
+  distinct(representative, .keep_all = T)
+  
+```
+
+
+```{r}
+# settings
+output_dir = data_dir
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+### sub_dir = file.path(output_dir, "sub")
+### dir.create(sub_dir, showWarnings = FALSE, recursive = TRUE)
+
+n_workers = 2
+
+plan(multisession, workers = n_workers)
+
+feature_sources = tribble(
+  ~feature_col,             ~df_name,
+  "Species",                "taxa_species",
+  "rps",                    "rps_no_na",
+  #"rips",                  "rips_no_na",
+  "args",                   "args_no_na",
+  #"args_family",           "args_no_na2",
+  #"args_group",            "args_no_na2",
+  #"defense_type",          "defense_no_na",
+  "defense_subtype",        "defense_no_na",
+  "mrg_gene",               "mrg_no_na",
+  #"mrg_id",                "mrg_no_na",
+  #"mrg_group",             "mrg_no_na",
+  "mobs_Name",              "mobs_no_na",
+  "st_hab1",                "sylph_no_na",
+  "st_hab1",                "sylph_sample",
+  "Domain",                 "taxa_domain",
+  "Phylum",                 "taxa_phylum",
+  "Class",                  "taxa_class",
+  "Order",                  "taxa_order",
+  "Family",                 "taxa_family",
+  "Genus",                  "taxa_genus",
+  #"Species",               "taxa_species",
+  #"replicon_subtype",      "replicons_no_na",
+  "replicon_type",          "replicons_no_na",
+  #"replicon_family",       "replicons_no_na",
+  #"replicon_broad",        "replicons_no_na",
+  "ecosystem",              "imgpr2",
+  #"environment",           "imgpr2"
+)
+
+group_cols = c("ptu", "dptu")
+
+
+# helper functions
+write_tsv = function(x, path) {
+  write.table(
+    x,
+    file = path,
+    sep = "\t",
+    quote = FALSE,
+    row.names = FALSE,
+    na = ""
+  )
+}
+
+safe_name = function(x) {
+  x %>%
+    gsub("[^A-Za-z0-9_]+", "_", .) %>%
+    gsub("_+", "_", .) %>%
+    gsub("^_|_$", "", .)
+}
+
+parse_features = function(x) {
+  x = as.character(x)
+  x[is.na(x)] = ""
+  
+  items = unlist(strsplit(x, ",", fixed = TRUE))
+  items = trimws(items)
+  
+  items = items[items != ""]
+  items = items[toupper(items) != "NONE"]
+  
+  sort(unique(items))
+}
+
+jaccard = function(a, b) {
+  uni = union(a, b)
+  
+  if (length(uni) == 0L) return(1)
+  
+  length(intersect(a, b)) / length(uni)
+}
+
+pairwise_jaccard_values = function(sets) {
+  n = length(sets)
+  
+  if (n < 2L) return(numeric())
+  
+  idx = combn(seq_len(n), 2)
+  
+  map_dbl(seq_len(ncol(idx)), function(i) {
+    a = sets[[idx[1, i]]]
+    b = sets[[idx[2, i]]]
+    
+    jaccard(a, b)
+  })
+}
+
+weighted_sd = function(x, w) {
+  
+  keep = !is.na(x) & !is.na(w) & w > 0
+  
+  x = x[keep]
+  w = w[keep]
+  
+  if (length(x) < 2L) return(NA_real_)
+  
+  w = w / sum(w)
+  
+  weighted_mean = sum(w * x)
+  
+  sqrt(sum(w * (x - weighted_mean)^2))
+}
+
+count_total_feature_info = function(df_source, feature_col) {
+  
+  tmp = df_source %>%
+    select(
+      representative,
+      feature = all_of(feature_col)
+    ) %>%
+    filter(!is.na(representative)) %>%
+    distinct()
+  
+  tibble(
+    n_plasmids_total = n_distinct(tmp$representative),
+    n_features_total = length(unique(unlist(map(tmp$feature, parse_features))))
+  )
+}
+
+count_features_from_string = function(x) {
+  
+  values = unlist(strsplit(x, ",\\s*"))
+  values = values[!is.na(values)]
+  values = trimws(values)
+  values = values[values != ""]
+  
+  length(unique(values))
+}
+
+
+# prepare group info once
+group_info = pfd_md2 %>%
+  select(representative, ptu, dptu) %>%
+  distinct()
+
+
+# core function
+compute_jaccard_per_group = function(group_col, feature_col, df_source, df_name) {
+  
+  sets_full = df_source %>%
+    select(
+      representative,
+      feature = all_of(feature_col)
+    ) %>%
+    left_join(group_info, by = "representative") %>%
+    select(
+      representative,
+      group_value = all_of(group_col),
+      feature
+    ) %>%
+    filter(!is.na(representative), !is.na(group_value)) %>%
+    distinct() %>%
+    group_by(group_value, representative) %>%
+    summarise(
+      set = list(parse_features(feature)),
+      .groups = "drop"
+    )
+  
+  grouped_sets = sets_full %>%
+    group_by(group_value) %>%
+    group_split()
+  
+  scores = future_map_dfr(
+    grouped_sets,
+    function(group_df) {
+      
+      n_members = nrow(group_df)
+      n_pairs = choose(n_members, 2)
+      
+      pairwise_values = pairwise_jaccard_values(group_df$set)
+      features_group = sort(unique(unlist(group_df$set)))
+      
+      tibble(
+        group_value = group_df$group_value[1],
+        n_groups = 1,
+        n_plasmids = n_members,
+        n_pairs = n_pairs,
+        n_features = length(features_group),
+        features_used = paste(features_group, collapse = ", "),
+        
+        jaccard = mean(pairwise_values),
+        
+        sd_jaccard = sd(pairwise_values)
+      )
+    },
+    .options = furrr_options(seed = FALSE)
+  ) %>%
+    filter(n_plasmids >= 2)
+  
+  if (nrow(scores) == 0) {
+    return(
+      tibble(
+        group = character(),
+        group_value = character(),
+        trait = character(),
+        df_name = character(),
+        n_groups = numeric(),
+        n_plasmids = numeric(),
+        n_features = numeric(),
+        features_used = character(),
+        jaccard = numeric(),
+        sd_jaccard = numeric(),
+        weight = numeric()
+      )
+    )
+  }
+  
+  scores = scores %>%
+    mutate(
+      weight = n_pairs / sum(n_pairs),
+      group = group_col,
+      trait = feature_col,
+      df_name = df_name
+    ) %>%
+    select(
+      group,
+      group_value,
+      trait,
+      df_name,
+      n_groups,
+      n_plasmids,
+      n_features,
+      features_used,
+      jaccard,
+      sd_jaccard,
+      weight
+    )
+  
+  scores
+}
+
+
+compute_one_feature_summary = function(feature_col, df_name, df_source) {
+  
+  message("Starting: ", df_name, " | ", feature_col)
+  
+  total_feature_info = count_total_feature_info(
+    df_source = df_source,
+    feature_col = feature_col
+  )
+  
+  per_group = map_dfr(group_cols, function(group_col) {
+    compute_jaccard_per_group(
+      group_col = group_col,
+      feature_col = feature_col,
+      df_source = df_source,
+      df_name = df_name
+    )
+  })
+  
+  summary = per_group %>%
+    group_by(group, trait, df_name) %>%
+    summarise(
+      n_groups = n(),
+      n_plasmids = sum(n_plasmids),
+      n_features = count_features_from_string(features_used),
+      
+      mean_jaccard = mean(jaccard),
+      
+      sd_jaccard_unweighted = sd(jaccard),
+      
+      weighted_jaccard = sum(jaccard * weight),
+      
+      sd_jaccard_weighted = weighted_sd(
+        x = jaccard,
+        w = weight
+      ),
+      
+      .groups = "drop"
+    ) %>%
+    bind_cols(total_feature_info)
+  
+  message("Finished: ", df_name, " | ", feature_col)
+  
+  list(
+    summary = summary,
+    per_group = per_group
+  )
+}
+
+
+# run each trait
+completed_summaries = list()
+error_log = list()
+
+for (i in seq_len(nrow(feature_sources))) {
+  
+  current = feature_sources[i, ]
+
+  feature_col = current$feature_col
+  df_name = current$df_name
+  
+  df_source = get(df_name, envir = .GlobalEnv)
+  
+###   summary_file = file.path(
+###     sub_dir,
+###     paste0(
+###       sprintf("%03d", i), "_",
+###       safe_name(df_name), "_",
+###       safe_name(feature_col),
+###       "_summary.tsv"
+###     )
+###   )
+  
+###   per_group_file = file.path(
+###     sub_dir,
+###     paste0(
+###       sprintf("%03d", i), "_",
+###       safe_name(df_name), "_",
+###       safe_name(feature_col),
+###       "_per_group.tsv"
+###     )
+###   )
+  
+###   error_file = file.path(
+###     sub_dir,
+###     paste0(
+###       sprintf("%03d", i), "_",
+###       safe_name(df_name), "_",
+###       safe_name(feature_col),
+###       "_ERROR.txt"
+###     )
+###   )
+  
+  tryCatch(
+    {
+      result_out = compute_one_feature_summary(
+
+        feature_col = feature_col,
+        df_name = df_name,
+        df_source = df_source
+      )
+      
+      summary_out = result_out$summary
+      per_group_out = result_out$per_group
+      
+### write_tsv(summary_out, summary_file)
+### write_tsv(per_group_out, per_group_file)
+      
+      completed_summaries[[length(completed_summaries) + 1]] = summary_out
+    },
+    error = function(e) {
+      
+      error_message = paste0(
+
+        "df_name: ", df_name, "\n",
+        "feature_col: ", feature_col, "\n\n",
+        conditionMessage(e), "\n"
+      )
+      
+### writeLines(error_message, error_file)
+      
+      error_log[[length(error_log) + 1]] <<- tibble(
+
+        df_name = df_name,
+        feature_col = feature_col,
+        error = conditionMessage(e)
+      )
+      
+      message("ERROR: ", df_name, " | ", feature_col)
+      message(conditionMessage(e))
+    }
+  )
+  
+  rm(df_source)
+  gc()
+}
+
+
+# combine feature summaries
+summary_table = bind_rows(completed_summaries)
+
+### if (length(error_log) > 0) {
+###   error_table = bind_rows(error_log)
+  
+###   write_tsv(
+###     error_table,
+###     file.path(output_dir, "error_log.tsv")
+###   )
+### }
+
+
+# write final outputs
+write_tsv(
+  summary_table,
+  file.path(output_dir, "traits_all.tsv")
+)
+
+
+```
+
+
+# plot
+```{r}
+# packages
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(ggtext)
+library(patchwork)
+library(scales)
+library(grid)
+
+# theme
+figure_theme = theme_bw(base_size = 12, base_family = "sans") +
+  theme(
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10, color = "black"),
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 10),
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    legend.position = "none"
+  )
+
+# plot data
+traits_no_na = fread(file.path(data_dir, "traits_all.tsv")) 
+
+
+plot_df = traits_no_na %>%
+  mutate(
+    group = factor(group, levels = c("ptu", "dptu"),
+                        labels = c("PTU", "dPTU")),
+    value = weighted_jaccard,
+    label = case_when(
+      df_name == "rps_no_na" & trait == "rps" ~ "RPs",
+      #df_name == "rips_no_na" & trait == "rips" ~ "RIPs",
+
+      df_name == "mobs_no_na" & trait == "mobs_Name" ~ "MOBs family",
+
+      df_name == "replicons_no_na" & trait == "replicon_type" ~ "Replicon type",
+      #df_name == "replicons_no_na" & trait == "replicon_subtype" ~ "Replicon subtype",
+      #df_name == "replicons_no_na" & trait == "replicon_family" ~ "Replicon family",
+      #df_name == "replicons_no_na" & trait == "replicon_broad" ~ "Replicon broad",
+
+      df_name == "sylph_no_na" & trait == "st_hab1" ~ "QMFD01",
+      df_name == "sylph_sample" & trait == "st_hab1" ~ "MFD01",
+      df_name == "imgpr2" & trait == "ecosystem" ~ "IMG/PR ecosystem",
+      #df_name == "imgpr3" & trait == "environment" ~ "IMG/PR environment",
+
+      #df_name == "defense_no_na" & trait == "defense_type" ~ "Defense system",
+      df_name == "defense_no_na" & trait == "defense_subtype" ~ "Defense subsystem",
+
+      df_name == "args_no_na" & trait == "args" ~ "ARGs",
+      #df_name == "args_no_na" & trait == "args_family" ~ "ARG family",
+      #df_name == "args_no_na" & trait == "args_group" ~ "ARG group",
+
+      df_name == "mrg_no_na" & trait == "mrg_gene" ~ "MRGs",
+      #df_name == "mrg_no_na" & trait == "mrg_id" ~ "Metal resistance ID",
+      #df_name == "mrg_no_na" & trait == "mrg_group" ~ "Metal resistance group",
+
+      df_name == "taxa_domain" & trait == "Domain" ~ "Domain",
+      df_name == "taxa_phylum" & trait == "Phylum" ~ "Phylum",
+      df_name == "taxa_class" & trait == "Class" ~ "Class",
+      df_name == "taxa_order" & trait == "Order" ~ "Order",
+      df_name == "taxa_family" & trait == "Family" ~ "Family",
+      df_name == "taxa_genus" & trait == "Genus" ~ "Genus",
+      df_name == "taxa_species" & trait == "Species" ~ "Species",
+      TRUE ~ trait
+    )
+  )
+
+# make each heatmap section
+make_heatmap = function(data, labels, title) {
+  plot_data = data %>%
+    filter(label %in% labels)
+
+  label_lookup = plot_data %>%
+    distinct(label, n_features_total) %>%
+    arrange(match(label, labels)) %>%
+    mutate(label_with_n = paste0(label, " (", comma(n_features_total), ")"))
+
+  plot_data %>%
+    left_join(label_lookup, by = c("label", "n_features_total")) %>%
+    mutate(
+      label_with_n = factor(label_with_n, levels = rev(label_lookup$label_with_n)),
+      text_label = sprintf(
+        "<span style='font-size:12pt'><b>%.2f</b></span><span style='font-size:10pt'> ± %.2f<br>(%s; %s; %s)</span>",
+        value, sd_jaccard_weighted,
+        comma(n_features), comma(n_groups), comma(n_plasmids)
+      )
+    ) %>%
+    ggplot(aes(x = group, y = label_with_n, fill = value)) +
+    geom_tile(color = "white", linewidth = 0.3) +
+    geom_richtext(
+      aes(label = text_label),
+      color = "black", size = 10 / .pt, lineheight = 1,
+      fill = NA, label.color = NA
+    ) +
+    scale_fill_viridis_c(
+      limits = c(0, 1), name = "Jaccard-index",
+      guide = guide_colorbar(
+        direction = "horizontal", title.position = "top", title.hjust = 0.5,
+        barwidth = unit(4, "cm"), barheight = unit(0.5, "cm")
+      )
+    ) +
+    scale_x_discrete(expand = c(0, 0)) +
+    scale_y_discrete(expand = c(0, 0)) +
+    labs(title = title, x = NULL, y = NULL) +
+    figure_theme
+}
+
+# backbone
+p_backbone = make_heatmap(
+  plot_df, c("RPs", "Replicon type", "MOBs family"), "Backbone"
+)
+
+# accessory
+p_accessory = make_heatmap(
+  plot_df, c("Defense subsystem", "MRGs", "ARGs"), "Accessory"
+)
+
+# environment
+p_env = make_heatmap(
+  plot_df, c("MFD01", "QMFD01", "IMG/PR ecosystem"), "Environment"
+)
+
+# taxonomy
+p_tax = make_heatmap(
+  plot_df, c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
+  "Taxonomy"
+)
+
+# sections on the left, taxonomy and the colour scale on the right
+layout = "
+AD
+BD
+CE
+"
+traits_plot = wrap_plots(
+  A = p_backbone, B = p_accessory, C = p_env,
+  D = p_tax, E = guide_area(),
+  design = layout, heights = c(3, 3, 3), widths = c(1, 1),
+  guides = "collect"
+) & theme(legend.position = "right")
+
+# page size and margins
+figure_width = 21
+figure_height = 18
+figure_margin = margin(3, 3, 3, 3, unit = "mm")
+traits_plot = traits_plot + plot_annotation(theme = theme(plot.margin = figure_margin))
+
+traits_plot
+
+# save figure
+dir.create(figure_dir, showWarnings = FALSE, recursive = TRUE)
+ggsave(
+  filename = file.path(figure_dir, "si_f5.png"),
+  plot = traits_plot,
+  width = figure_width, height = figure_height,
+  units = "cm", dpi = 600, bg = "white"
+)
+
+```
+
+
+
+
+

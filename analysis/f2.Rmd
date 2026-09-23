@@ -1,0 +1,663 @@
+---
+title: "Untitled"
+author: "Bertil Sørensen"
+date: "2026-09-22"
+output: html_document
+---
+
+# packages
+```{r}
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+library(patchwork)
+library(grid)
+library(vegan)
+```
+
+# theme
+```{r}
+figure_theme = theme_bw(base_size = 10, base_family = "sans") +
+  theme(
+    axis.title = element_text(size = 11),
+    axis.text = element_text(size = 10, color = "black"),
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size = 10),
+    strip.text = element_text(size = 10),
+    panel.grid = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.66)
+  )
+
+```
+
+```{r}
+# directories
+project_dir = path.expand("~/Desktop/pfd_github")
+data_dir = file.path(project_dir, "data")
+figure_dir = file.path(project_dir, "figures")
+```
+
+
+# figure a
+```{r}
+pfd_md = fread(file.path(data_dir, "pfd_md_26_09_09.tsv"))
+pfd_md_rd = pfd_md %>%
+  mutate(source = if_else(grepl("MFD", member_id), "MFD", "DB")) %>%
+  select(representative, member_id, db, source, ptu, dptu, length, gc) %>%
+  distinct(representative, .keep_all = T) 
+# ptu groups
+ptu_df = pfd_md_rd %>%
+  mutate(ptu = na_if(ptu, "")) %>%
+  filter(!is.na(ptu)) %>%
+  group_by(ptu) %>% 
+  mutate(ptu_size = n()) %>%
+  mutate(
+    ptu_category = case_when(
+      all(source == "MFD") ~ "MFD",
+      all(source == "DB") ~ "DB",
+      TRUE ~ "Shared"
+    )
+  ) %>%
+  ungroup() %>%
+  select(representative, ptu, source, ptu_category) 
+
+  
+db_shared_ptu = ptu_df %>%
+  filter(ptu_category %in% c("DB", "Shared"))
+
+mfd_ptu = ptu_df %>%
+  filter(ptu_category == "MFD")
+
+
+ptu_counts = ptu_df %>%
+  mutate(
+    ptu_category_rf = if_else(
+      ptu_category == "MFD",
+      "MFD-only",
+      "DB-only + Shared"
+    )
+  ) %>%
+  count(ptu_category_rf, ptu, name = "ptu_size")
+
+rf_ptu = as.matrix(xtabs(ptu_size ~ ptu_category_rf + ptu, data = ptu_counts))
+
+rare_ptu = rarecurve(rf_ptu, step = 100, tidy = TRUE) %>%
+  rename(
+    ptu_category_rf = Site,
+    plasmid = Sample,
+    ptu = Species
+  ) %>%
+  mutate(
+    plasmid = if_else(
+      ptu_category_rf == "MFD-only",
+      plasmid + max(plasmid[ptu_category_rf == "DB-only + Shared"]),
+      plasmid
+    ),
+    ptu = if_else(
+      ptu_category_rf == "MFD-only",
+      ptu + max(ptu[ptu_category_rf == "DB-only + Shared"]),
+      ptu
+    )
+  )
+
+# dptu groups
+dptu_df = pfd_md_rd %>%
+  mutate(dptu = na_if(dptu, "")) %>%
+  filter(!is.na(dptu)) %>%
+  group_by(dptu) %>% 
+  mutate(dptu_size = n()) %>%
+  mutate(
+    dptu_category = case_when(
+      all(source == "MFD") ~ "MFD",
+      all(source == "DB") ~ "DB",
+      TRUE ~ "Shared"
+    )
+  ) %>%
+  ungroup() %>%
+  select(representative, dptu, source, dptu_category) 
+
+  
+db_shared_dptu = dptu_df %>%
+  filter(dptu_category %in% c("DB", "Shared"))
+
+mfd_dptu = dptu_df %>%
+  filter(dptu_category == "MFD")
+
+
+dptu_counts = dptu_df %>%
+  mutate(
+    dptu_category_rf = if_else(
+      dptu_category == "MFD",
+      "MFD-only",
+      "DB-only + Shared"
+    )
+  ) %>%
+  count(dptu_category_rf, dptu, name = "dptu_size")
+
+rf_dptu = as.matrix(xtabs(dptu_size ~ dptu_category_rf + dptu, data = dptu_counts))
+
+rare_dptu = rarecurve(rf_dptu, step = 100, tidy = TRUE) %>%
+  rename(
+    dptu_category_rf = Site,
+    plasmid = Sample,
+    dptu = Species
+  ) %>%
+  mutate(
+    plasmid = if_else(
+      dptu_category_rf == "MFD-only",
+      plasmid + max(plasmid[dptu_category_rf == "DB-only + Shared"]),
+      plasmid
+    ),
+    dptu = if_else(
+      dptu_category_rf == "MFD-only",
+      dptu + max(dptu[dptu_category_rf == "DB-only + Shared"]),
+      dptu
+    )
+  )
+
+# combine ptu and dptu rarefaction 
+rare_df = bind_rows(
+  rare_ptu %>% mutate(group = "PTU"),
+  rare_dptu %>%
+    rename(ptu_category_rf = dptu_category_rf, ptu = dptu) %>%
+    mutate(group = "dPTU")
+)
+
+# plot rarefaction
+rarefaction = ggplot(rare_df, aes(plasmid, ptu, colour = ptu_category_rf, linetype = group,
+                                            group = interaction(group, ptu_category_rf))) +
+  geom_line(
+    data = bind_rows(
+      rare_df,
+      rare_df %>%
+        filter(ptu_category_rf == "DB-only + Shared") %>%
+        group_by(group) %>%
+        slice_max(plasmid, n = 1, with_ties = FALSE) %>%
+        ungroup() %>%
+        mutate(ptu_category_rf = "MFD-only")
+    ),
+    linewidth = 1.2
+  ) +
+  geom_point(
+    data = rare_df %>%
+      group_by(group, ptu_category_rf) %>%
+      slice_max(plasmid, n = 1, with_ties = FALSE) %>%
+      ungroup(),
+    size = 1.5,
+    show.legend = FALSE
+  ) +
+  scale_colour_manual(
+    values = c("DB-only + Shared" = "gray", "MFD-only" = "blue"),
+    breaks = c("DB-only + Shared", "MFD-only")
+  ) +
+  scale_linetype_manual(
+    values = c("PTU" = "solid", "dPTU" = "11"),
+    breaks = c("PTU", "dPTU")
+  ) +
+  guides(
+    colour = guide_legend(order = 1, override.aes = list(linewidth = 1, linetype = "solid")),
+    linetype = guide_legend(order = 2, override.aes = list(linewidth = 1))
+  ) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  labs(
+    x = "No. of plasmids",
+    y = "No. of groups",
+    colour = "Categories",
+    linetype = "Group"
+  ) +
+  figure_theme +
+  theme(
+    legend.position = "inside",
+    legend.position.inside = c(0.03, 0.97),
+    legend.justification = c(0, 1),
+    legend.text = element_text(margin = margin(l = 1, unit = "mm")),
+    legend.title = element_text(margin = margin(b = 1, unit = "mm")),
+    legend.key.height = unit(4, "mm"),
+    legend.key.spacing.y = unit(0, "mm"),
+    legend.spacing.y = unit(1, "mm"),
+    legend.margin = margin(0, 0, 0, 0),
+    legend.background = element_rect(fill = "white", color = NA)
+  )
+
+rarefaction
+
+```
+
+# figure b
+```{r}
+
+pfd_md = fread(file.path(data_dir, "pfd_md_26_09_15.tsv"),
+               select = c("representative", "member_id", "ptu", "dptu"))
+pc = fread(file.path(data_dir, "260515_new_eggnog_df.tsv"),
+           select = c("representative", "member_id", "protein_cluster", "source"))
+
+pc2 = pc %>%
+  filter(representative == member_id,
+         !is.na(protein_cluster), protein_cluster != "") %>%
+  distinct(representative, protein_cluster, source)
+
+# retain source when collapsing plasmids to ptuss/dptus
+pc_plasmid = pc2 %>% distinct(representative, protein_cluster, source)
+pc_ptu = pc_plasmid %>%
+  inner_join(pfd_md %>% distinct(representative, ptu),
+             by = "representative", relationship = "many-to-many") %>%
+  filter(!is.na(ptu), ptu != "") %>%
+  distinct(ptu, protein_cluster, source)
+pc_dptu = pc_plasmid %>%
+  inner_join(pfd_md %>% distinct(representative, dptu),
+             by = "representative", relationship = "many-to-many") %>%
+  filter(!is.na(dptu), dptu != "") %>%
+  distinct(dptu, protein_cluster, source)
+
+step = 5000
+
+# put all three resolutions in the same format
+pc_groups = bind_rows(
+  pc_plasmid %>% transmute(group = "Plasmid", unit = representative, protein_cluster, source),
+  pc_ptu %>% transmute(group = "PTU", unit = ptu, protein_cluster, source),
+  pc_dptu %>% transmute(group = "dPTU", unit = dptu, protein_cluster, source)
+) %>%
+  group_by(group, unit) %>%
+  mutate(category = if_else(all(source == "MFD"), "MFD-only", "DB-only + Shared")) %>%
+  ungroup() %>%
+  distinct(group, unit, protein_cluster, category)
+
+# count all sampling units before removing previously observed pcs
+unit_counts = pc_groups %>%
+  group_by(group, category) %>%
+  summarise(n_units = n_distinct(unit), .groups = "drop")
+
+db_shared = pc_groups %>% filter(category == "DB-only + Shared")
+
+mfd_new = pc_groups %>%
+  filter(category == "MFD-only") %>%
+  anti_join(db_shared %>% distinct(group, protein_cluster),
+            by = c("group", "protein_cluster"))
+
+# count units containing each pc; combine pcs with the same frequency
+pc_counts = bind_rows(db_shared, mfd_new) %>%
+  count(group, category, protein_cluster, name = "present") %>%
+  count(group, category, present, name = "n_pc")
+
+samples = unit_counts %>%
+  group_by(group, category) %>%
+  reframe(n_units = n_units,
+          units = sort(unique(c(0, 1, seq(0, n_units, by = step), n_units))))
+
+samples = samples %>%
+  left_join(pc_counts, by = c("group", "category"), relationship = "many-to-many") %>%
+  mutate(present = coalesce(present, 0L),
+         n_pc = coalesce(n_pc, 0L),
+         absent = n_units - present)
+
+# vegan::drarefy returns the probability of observing each category.
+# we use only the probability of observing "present" units.
+# https://vegandevs.github.io/vegan/reference/rarefy.html
+pc_matrix = as.matrix(samples %>% select(present, absent))
+samples$probability = drarefy(pc_matrix, sample = samples$units)[, "present"]
+
+rare_df = samples %>%
+  group_by(group, category, units) %>%
+  summarise(protein_clusters = sum(probability * n_pc), .groups = "drop")
+
+# continue blue (mfd-only) from the grey (db-only + shared) endpoint
+rare_df = rare_df %>%
+  group_by(group) %>%
+  mutate(
+    units = if_else(category == "MFD-only",
+                    units + max(units[category == "DB-only + Shared"]), units),
+    protein_clusters = if_else(category == "MFD-only",
+                               protein_clusters + max(protein_clusters[category == "DB-only + Shared"]),
+                               protein_clusters)
+  ) %>%
+  ungroup()
+
+endpoints = rare_df %>%
+  group_by(group, category) %>%
+  slice_max(units, n = 1, with_ties = FALSE) %>% ungroup()
+
+pc_rarefaction = ggplot(rare_df,
+                        aes(protein_clusters, units, colour = category, linetype = group,
+                            group = interaction(group, category))) +
+  geom_line(linewidth = 1.2) +
+  geom_point(data = endpoints, size = 1.5, show.legend = FALSE) +
+  scale_colour_manual(values = c("DB-only + Shared" = "gray", "MFD-only" = "blue"),
+                      breaks = c("DB-only + Shared", "MFD-only")) +
+  scale_linetype_manual(values = c("Plasmid" = "longdash", "PTU" = "solid", "dPTU" = "11"),
+                        breaks = c("Plasmid", "PTU", "dPTU")) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  labs(x = "Protein clusters (30% identity)", y = "No. of groups",
+       colour = "Categories", linetype = "Group") +
+  guides(colour = guide_legend(order = 1, override.aes = list(linetype = "solid", linewidth = 1)),
+         linetype = guide_legend(order = 2, override.aes = list(linewidth = 1))) +
+  figure_theme +
+  theme(
+    legend.position = "inside",
+    legend.position.inside = c(0.03, 0.97),
+    legend.justification = c(0, 1),
+    legend.key.width = unit(10, "mm"),
+    legend.key.height = unit(3, "mm"),
+    legend.margin = margin(0, 0, 0, 0),
+    legend.background = element_rect(fill = "white", colour = NA)
+  )
+
+```
+
+
+
+# figure c
+```{r}
+
+pfd = fread(file.path(data_dir, "pfd_md_26_09_15.tsv"))
+pfd_rd = pfd %>%
+  select(representative, ptu, dptu, db, rps, mobs_Name) %>%
+  mutate(across(c(representative, ptu, dptu), ~ na_if(trimws(.x), ""))) %>%
+  filter(!is.na(representative)) %>%
+  distinct(representative, .keep_all = TRUE)
+
+# totals include plasmids without RP or MOB annotations
+source_totals = pfd_rd %>%
+  mutate(source = if_else(db == "MFD", "MFD", "DB", missing = "DB")) %>%
+  group_by(source) %>%
+  summarise(
+    plasmids_total = n_distinct(representative),
+    ptus_total = n_distinct(ptu, na.rm = TRUE),
+    dptus_total = n_distinct(dptu, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# replication proteins
+rp_df = pfd_rd %>%
+  separate_rows(rps, sep = ",\\s*") %>%
+  mutate(source = if_else(db == "MFD", "MFD", "DB", missing = "DB")) %>%
+  filter(!is.na(rps), rps != "", rps != "NA") %>%
+  group_by(source, rps) %>%
+  summarise(
+    plasmid_count = n_distinct(representative),
+    ptu_count = n_distinct(ptu, na.rm = TRUE),
+    dptu_count = n_distinct(dptu, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  complete(rps, source = c("DB", "MFD"),
+           fill = list(plasmid_count = 0, ptu_count = 0, dptu_count = 0)) %>%
+  left_join(source_totals, by = "source") %>%
+  mutate(
+    plasmid_pct = plasmid_count / plasmids_total,
+    ptu_pct = ptu_count / ptus_total,
+    dptu_pct = dptu_count / dptus_total
+  )
+
+# mobilisation proteins; exclude MPF annotations from the MOB panel
+mob_df = pfd_rd %>%
+  separate_rows(mobs_Name, sep = ",\\s*") %>%
+  mutate(source = if_else(db == "MFD", "MFD", "DB", missing = "DB")) %>%
+  filter(!is.na(mobs_Name), grepl("^MOB", mobs_Name)) %>%
+  group_by(source, mobs_Name) %>%
+  summarise(
+    plasmid_count = n_distinct(representative),
+    ptu_count = n_distinct(ptu, na.rm = TRUE),
+    dptu_count = n_distinct(dptu, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  complete(mobs_Name, source = c("DB", "MFD"),
+           fill = list(plasmid_count = 0, ptu_count = 0, dptu_count = 0)) %>%
+  left_join(source_totals, by = "source") %>%
+  mutate(
+    plasmid_pct = plasmid_count / plasmids_total,
+    ptu_pct = ptu_count / ptus_total,
+    dptu_pct = dptu_count / dptus_total
+  )
+
+# combine RP and MOB summaries
+rp_mob = bind_rows(
+  rp_df %>% rename(reduced_gene_name = rps) %>% mutate(group = "RP"),
+  mob_df %>% rename(reduced_gene_name = mobs_Name) %>% mutate(group = "MOB")
+) %>%
+  mutate(
+    group = factor(group, levels = c("RP", "MOB")),
+    source = factor(source, levels = c("DB", "MFD"))
+  )
+
+# order each panel by DB plasmid counts; log10 gives the same ordering
+gene_order = rp_mob %>%
+  filter(source == "DB") %>%
+  arrange(group, desc(plasmid_count)) %>%
+  pull(reduced_gene_name)
+
+rp_mob = rp_mob %>%
+  mutate(reduced_gene_name = factor(reduced_gene_name, levels = unique(gene_order)))
+
+# one row per gene, source and plasmid/PTU/dPTU
+plot_df = rp_mob %>%
+  select(group, source, reduced_gene_name, ends_with("_count"), ends_with("_pct")) %>%
+  pivot_longer(
+    cols = c(ends_with("_count"), ends_with("_pct")),
+    names_to = c("unit", ".value"),
+    names_pattern = "(.*)_(count|pct)"
+  ) %>%
+  mutate(unit = factor(unit, levels = c("plasmid", "ptu", "dptu"),
+                       labels = c("Plasmid", "PTU", "dPTU")))
+
+# shared layout for counts and percentages
+rp_mob_plot = ggplot(plot_df, aes(reduced_gene_name, fill = source)) +
+  facet_grid(unit ~ group, scales = "free_x", space = "free_x", switch = "y") +
+  scale_fill_manual(values = c("DB" = "gray", "MFD" = "blue"), drop = FALSE) +
+  scale_x_discrete(labels = trimws) +
+  labs(x = NULL, fill = NULL) +
+  figure_theme +
+  theme(
+    strip.background = element_blank(),
+    strip.text.x = element_blank(),
+    axis.line.y = element_line(colour = "black", linewidth = 0.5),
+    axis.ticks = element_line(colour = "black"),
+    panel.grid.major.y = element_line(colour = "grey90", linewidth = 0.25),
+    axis.text.x = element_text(angle = 270, hjust = 0, vjust = 0.5),
+    legend.position = "top",
+    legend.justification = "left",
+    legend.location = "panel",
+    legend.margin = margin(0, 0, 0, 0)
+  )
+
+# zero counts have no bar on a logarithmic axis
+counts = rp_mob_plot +
+  geom_col(aes(y = if_else(count > 0, as.numeric(count), NA_real_)),
+           position = position_dodge(width = 0.8), width = 0.75,
+           colour = "black", linewidth = 0.4, na.rm = TRUE) +
+  scale_y_log10(breaks = c(1, 10, 100, 1000, 10000, 100000), labels = comma) +
+  expand_limits(y = 100000) +
+  labs(y = expression("Groups with RP / MOB (" * log[10] * ")")) +
+  theme(axis.text.x = element_blank())
+
+percents = rp_mob_plot +
+  geom_col(aes(y = pct * 100), position = position_dodge(width = 0.8),
+           width = 0.75, colour = "black", linewidth = 0.4) +
+  scale_y_sqrt(breaks = c(0, 5, 25, 50)) +
+  labs(y = "Groups with RP / MOB [%]") +
+  theme(legend.position = "none")
+
+# counts above percentages; the upper plot supplies the panel-aligned legend
+gene_count_plot = (counts / percents) +
+  plot_layout(heights = c(1, 1))
+
+gene_count_plot
+```
+
+
+# figure d
+```{r}
+traits_all = fread("~/Desktop/Figure2_Data/C/summary_table.tsv")
+
+# trait order from top to bottom within each category
+trait_order = c(
+  "RPs", "Replicon type", "MOBs family",
+  "Defense subsystem", "MRGs", "ARGs",
+  "Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species",
+  "MFD01", "QMFD01", "IMG/PR ecosystem"
+)
+
+# add plotting labels to the summary file
+traits_all = traits_all %>%
+  mutate(
+    label = case_when(
+      var %in% c("rps", "reps") ~ "RPs",
+      var == "replicon_type" ~ "Replicon type",
+      var == "mobs_Name" ~ "MOBs family",
+      var == "defense_subtype" ~ "Defense subsystem",
+      var == "mrg_gene" ~ "MRGs",
+      var == "args" ~ "ARGs",
+      df_name == "sylph_sample" ~ "MFD01",
+      df_name %in% c("sylph_no_na", "sylph_comb_no_na") ~ "QMFD01",
+      var == "ecosystem" ~ "IMG/PR ecosystem",
+      TRUE ~ var
+    )
+  ) %>%
+  filter(label %in% trait_order) %>%
+  mutate(
+    category = case_when(
+      label %in% c("RPs", "Replicon type", "MOBs family") ~ "Backbone",
+      label %in% c("Defense subsystem", "MRGs", "ARGs") ~ "Accessory",
+      label %in% c("MFD01", "QMFD01", "IMG/PR ecosystem") ~ "Environment",
+      TRUE ~ "Taxonomy"
+    ),
+    label = factor(label, levels = rev(trait_order)),
+    category = factor(category, levels = c("Backbone", "Accessory", "Environment", "Taxonomy")),
+    group_axis = factor(group_axis, levels = c("dptu", "ptu"), labels = c("dPTU", "PTU"))
+  )
+
+trait_colours = c("dPTU" = "white", "PTU" = "black")
+pd_c = position_dodge(width = 0.55)
+
+# shared layout keeps the two columns aligned
+trait_plot = ggplot(traits_all, aes(y = label, fill = group_axis, group = group_axis)) +
+  facet_grid(category ~ ., scales = "free_y", space = "free_y", switch = "y") +
+  scale_y_discrete(labels = c("Defense subsystem" = "Defense\nsubsystem",
+                              "IMG/PR ecosystem" = "IMG/PR\necosystem")) +
+  scale_fill_manual(values = trait_colours) +
+  labs(y = NULL, fill = NULL, linetype = NULL) +
+  figure_theme +
+  theme(
+    panel.border = element_blank(),
+    panel.grid.major.y = element_line(colour = "grey80", linetype = "dotted"),
+    strip.background = element_blank(),
+    strip.text.y.left = element_text(angle = 90, size = 10),
+    legend.position = "top",
+    legend.justification = "left",
+    legend.location = "panel",
+    legend.key.width = unit(2.5, "mm"),
+    legend.margin = margin(0, 0, 0, 0),
+    legend.box.margin = margin(0, 0, 0, 0)
+  )
+
+jaccard = trait_plot +
+  geom_errorbar(
+    aes(x = weighted_jaccard,
+        xmin = weighted_jaccard - sd_jaccard_weighted,
+        xmax = weighted_jaccard + sd_jaccard_weighted),
+    orientation = "y", position = pd_c, width = 0.2, linewidth = 0.5
+  ) +
+  geom_point(aes(x = weighted_jaccard), shape = 21, size = 2.5, position = pd_c) +
+  scale_x_continuous(breaks = c(0, 0.5, 1)) +
+  coord_cartesian(xlim = c(-0.1, 1.25), clip = "off") +
+  labs(x = "Jaccard") +
+  theme(axis.line.y = element_line(colour = "black", linewidth = 0.5))
+
+groups = trait_plot +
+  geom_point(aes(x = n_groups), shape = 21, size = 2.5, position = pd_c) +
+  scale_x_continuous(breaks = c(0, 5000, 10000, 15000),
+                     labels = c(0, 5, 10, 15)) +
+  coord_cartesian(xlim = c(-2000, 17000), clip = "off") +
+  labs(x = "Groups\n(thousands)") +
+  theme(legend.position = "none", strip.text.y = element_blank(), strip.text.y.left = element_blank(),
+        axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+        plot.margin = margin(0, 0, 0, 0))
+
+trait_plot_c = (jaccard | groups) +
+  plot_layout(widths = c(1, 0.85))
+# align this legend with the bar-plot legend
+trait_plot_c = trait_plot_c +
+  plot_annotation(theme = theme(plot.margin = margin(4, 0, 0, 0, unit = "mm")))
+trait_plot_c
+
+# show both legends in each curve plot
+curve_legend = theme(
+  legend.position = "inside",
+  legend.position.inside = c(0.02, 0.98),
+  legend.justification = c(0, 1),
+  legend.box = "vertical",
+  legend.direction = "vertical",
+  legend.title.position = "top",
+  legend.spacing.y = unit(1, "mm"),
+  legend.margin = margin(0, 0, 0, 0),
+  legend.key.height = unit(3, "mm"),
+  legend.key.width = unit(9, "mm"),
+  legend.spacing.x = unit(1, "mm")
+)
+rarefaction = rarefaction +
+  labs(colour = "Categories", linetype = "Groups") + curve_legend +
+  guides(linetype = guide_legend(order = 2, override.aes = list(linewidth = 0.66)))
+pc_rarefaction = pc_rarefaction +
+  labs(colour = "Categories", linetype = "Groups") + curve_legend +
+  guides(linetype = guide_legend(order = 2, override.aes = list(linewidth = 0.66)))
+
+# put the outermost ticks at the same relative position
+rarefaction = rarefaction +
+  scale_x_continuous(breaks = seq(0, 160000, 40000),
+                     labels = comma,
+                     limits = c(0, 176000), expand = c(0, 0)) +
+  scale_y_continuous(breaks = seq(0, 60000, 20000), labels = comma,
+                     limits = c(0, 66000), expand = c(0, 0))
+pc_rarefaction = pc_rarefaction +
+  scale_x_continuous(breaks = seq(0, 800000, 200000),
+                     labels = comma,
+                     limits = c(0, 880000), expand = c(0, 0)) +
+  scale_y_continuous(breaks = seq(0, 160000, 40000),
+                     labels = comma,
+                     limits = c(0, 176000), expand = c(0, 0))
+
+# give each y-axis title the same space at the far left
+left_title = function(plot) {
+  title = textGrob(plot$labels$y, rot = 90,
+                   gp = gpar(fontsize = 11, fontfamily = "sans"))
+  wrap_elements(full = title) + wrap_elements(full = plot + labs(y = NULL)) +
+    plot_layout(widths = unit(c(5, 1), c("mm", "null")))
+}
+rarefaction = left_title(rarefaction)
+# keep the two bar plots aligned while placing their titles in a separate column
+bar_titles = wrap_elements(full = textGrob(counts$labels$y, rot = 90,
+  gp = gpar(fontsize = 11, fontfamily = "sans"))) /
+  wrap_elements(full = textGrob(percents$labels$y, rot = 90, y = 0.75,
+  gp = gpar(fontsize = 11, fontfamily = "sans")))
+bar_plots = (counts + labs(y = NULL)) / (percents + labs(y = NULL))
+gene_count_plot = wrap_elements(full = bar_titles) + wrap_elements(full = bar_plots) +
+  plot_layout(widths = unit(c(5, 1), c("mm", "null")))
+
+# fill the available space without panel letters
+panel_widths = c(1.3, 1)
+figure_ab = (wrap_elements(full = rarefaction) |
+             wrap_elements(full = pc_rarefaction)) +
+  plot_layout(widths = panel_widths)
+figure_bc = (wrap_elements(full = gene_count_plot) |
+             wrap_elements(full = trait_plot_c)) +
+  plot_layout(widths = c(1.75, 1))
+figure_plot = (wrap_elements(full = figure_ab) /
+               wrap_elements(full = figure_bc)) +
+  plot_layout(heights = c(1.15, 3.6))
+figure_plot = figure_plot & theme(plot.margin = margin(0, 0, 0, 0))
+
+# page size and margins
+figure_width = 21
+figure_height = 26
+figure_margin = margin(0, 0, 0, 0, unit = "mm")
+figure_plot = figure_plot +
+  plot_annotation(theme = theme(plot.margin = figure_margin))
+
+# save the combined figure
+dir.create(figure_dir, showWarnings = FALSE, recursive = TRUE)
+ggsave(file.path(figure_dir, "f2.png"), figure_plot,
+       width = figure_width, height = figure_height,
+       units = "cm", dpi = 600, bg = "white")
+```
