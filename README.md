@@ -32,7 +32,3 @@ The following files exceed GitHub's 100 MiB limit are not included in this repos
 | `data/sylph_260921.tsv` | 3,662.2 |
 
 These tables can be found at [Zenodo link]. Once deposited, download the required tables into `data/` before running analyses that use them.
-
-## Using the analyses
-
-Open the relevant R or R Markdown file in `analysis/` for the figure or statistic of interest. Review its package requirements and input/output paths for your local setup. Some analyses require the large tables listed above.
