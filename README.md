@@ -1,16 +1,17 @@
-# PFD manuscript: data, analysis, and figures
+# [Paper title]
+## Data, analysis, figures
 
-This repository contains the input data tables, R analysis code, and figure files used for the figures and statistics in the PFD manuscript.
-
-## Repository structure
-
-- **`data/`** — input tables used by the analyses. Data-processing steps are described in the manuscript Methods; those processing pipelines are not included here.
-- **`analysis/`** — R scripts and R Markdown documents for figures and statistical analyses.
-- **`figures/`** — resulting figure files.
+This repository contains the input data tables, R analysis code, and figure files used for the figures in the [Paper title] manuscript.
 
 ## Finding analyses and figures
 
 Filenames follow the order and numbering of the paper. Match the numbered filename prefixes in `analysis/` and `figures/` to locate the code and corresponding figure. For example, `analysis/f2.Rmd` corresponds to `figures/f2.png`; files beginning with `si_` contain supplementary analyses and outputs. Original filenames and numbering are preserved.
+
+## Repository structure
+
+- **`data/`** — input tables used by the analyses. Data-processing steps are described in the manuscript Methods; those processing pipelines are not included here.
+- **`analysis/`** — R scripts and R Markdown documents for data-processing and analyses.
+- **`figures/`** — resulting figures in the paper.
 
 Two specific cross-references:
 
@@ -19,7 +20,7 @@ Two specific cross-references:
 
 ## Large input tables omitted from GitHub
 
-The following files exceed GitHub's 100 MiB limit for ordinary Git files and are not included in this repository. Sizes below are in MiB (1,048,576 bytes).
+The following files exceed GitHub's 100 MiB limit are not included in this repository.
 
 | File | Size (MiB) |
 | --- | ---: |
@@ -30,7 +31,7 @@ The following files exceed GitHub's 100 MiB limit for ordinary Git files and are
 | `data/raw_illumina_plasmid_prediction.tsv` | 272.9 |
 | `data/sylph_260921.tsv` | 3,662.2 |
 
-The original README identifies these tables for a separate data deposit, such as Zenodo. A dataset link is not yet available. Once deposited, download the required tables into `data/` before running analyses that use them.
+These tables can be found at [Zenodo link]. Once deposited, download the required tables into `data/` before running analyses that use them.
 
 ## Using the analyses
 
