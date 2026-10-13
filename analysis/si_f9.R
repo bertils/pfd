@@ -1,14 +1,5 @@
-# directories
-project_dir = normalizePath(if (dir.exists("data") && dir.exists("analysis")) {
-  "."
-} else if (dir.exists("../data") && dir.exists("../analysis")) {
-  ".."
-} else {
-  stop("Cannot locate the data/ and analysis/ directories.")
-}, winslash = "/", mustWork = TRUE)
-data_dir = file.path(project_dir, "data")
-figure_dir = file.path(project_dir, "figures")
-dir.create(figure_dir, recursive = TRUE, showWarnings = FALSE)
+data_dir = if (dir.exists("data")) "data" else "../data"
+figure_dir = file.path(dirname(data_dir), "figures")
 
 library(data.table)
 library(svglite)
