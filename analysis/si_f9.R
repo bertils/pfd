@@ -1,5 +1,5 @@
-data_dir = if (dir.exists("data")) "data" else "../data"
-figure_dir = file.path(dirname(data_dir), "figures")
+data_dir = "data"
+figure_dir = "figures"
 
 library(data.table)
 library(svglite)

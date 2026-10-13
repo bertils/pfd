@@ -1,5 +1,5 @@
-data_dir = if (dir.exists("data")) "data" else "../data"
-figure_dir = file.path(dirname(data_dir), "figures")
+data_dir = "data"
+figure_dir = "figures"
 
 # Remove only blank rows above and below an export; keep its full width and DPI.
 trim_export_height = function(filename) {
