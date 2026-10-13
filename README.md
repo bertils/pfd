@@ -31,10 +31,10 @@ The following files exceed GitHub's 100 MiB file-size limit and are not included
 
 | File | Size (GB) |
 | --- | ---: |
-| `data/260515_new_eggnog_df.tsv` | 4.068 |
-| `data/IMGPR_plasmid_data.tsv` | 0.172 |
-| `data/merged.faa-ripdb.ultra.sensitive-with-real-names.tsv` | 0.249 |
-| `data/raw_illumina_plasmid_prediction.tsv` | 0.286 |
-| `data/sylph.tsv` | 3.683 |
+| `data/260515_new_eggnog_df.tsv` | 4.1 |
+| `data/IMGPR_plasmid_data.tsv` | 0.2 |
+| `data/merged.faa-ripdb.ultra.sensitive-with-real-names.tsv` | 0.2 |
+| `data/raw_illumina_plasmid_prediction.tsv` | 0.3 |
+| `data/sylph.tsv` | 3.7 |
 
 These tables can be found at [10.5281/zenodo.22944851](https://doi.org/10.5281/zenodo.22944851). Once deposited, download the required tables into `data/` before running analyses that use them.
