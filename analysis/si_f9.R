@@ -1,18 +1,21 @@
+# directories
+project_dir = normalizePath(if (dir.exists("data") && dir.exists("analysis")) {
+  "."
+} else if (dir.exists("../data") && dir.exists("../analysis")) {
+  ".."
+} else {
+  stop("Run from the repository root or its analysis/ directory.")
+}, winslash = "/", mustWork = TRUE)
+data_dir = file.path(project_dir, "data")
+figure_dir = file.path(project_dir, "figures")
+dir.create(figure_dir, recursive = TRUE, showWarnings = FALSE)
+
 library(data.table)
 library(svglite)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 
-# directories
-# Run from the repository root, or knit from analysis/.
-source(if (file.exists("analysis/project_setup.R")) {
-  "analysis/project_setup.R"
-} else {
-  "project_setup.R"
-})
-data_dir = file.path(project_dir, "data")
-figure_dir = file.path(project_dir, "figures")
 
 # theme
 figure_theme = theme_bw(base_size = 12, base_family = "sans") +

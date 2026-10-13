@@ -1,3 +1,15 @@
+# directories
+project_dir = normalizePath(if (dir.exists("data") && dir.exists("analysis")) {
+  "."
+} else if (dir.exists("../data") && dir.exists("../analysis")) {
+  ".."
+} else {
+  stop("Run from the repository root or its analysis/ directory.")
+}, winslash = "/", mustWork = TRUE)
+data_dir = file.path(project_dir, "data")
+figure_dir = file.path(project_dir, "figures")
+dir.create(figure_dir, recursive = TRUE, showWarnings = FALSE)
+
 # packages
 library(data.table)
 library(dplyr)
@@ -12,15 +24,6 @@ library(ragg)
 # Use Inter when installed; otherwise use the platform's sans-serif font.
 figure_font = if ("Inter" %in% systemfonts::system_fonts()$family) "Inter" else "sans"
 
-# directories
-# Run from the repository root, or knit from analysis/.
-source(if (file.exists("analysis/project_setup.R")) {
-  "analysis/project_setup.R"
-} else {
-  "project_setup.R"
-})
-data_dir = file.path(project_dir, "data")
-figure_dir = file.path(project_dir, "figures")
 
 # theme
 figure_theme = theme_bw(base_size = 6.5, base_family = figure_font) +

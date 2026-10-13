@@ -1,9 +1,14 @@
-# Run from the repository root, or knit from analysis/.
-source(if (file.exists("analysis/project_setup.R")) {
-  "analysis/project_setup.R"
+# directories
+project_dir = normalizePath(if (dir.exists("data") && dir.exists("analysis")) {
+  "."
+} else if (dir.exists("../data") && dir.exists("../analysis")) {
+  ".."
 } else {
-  "project_setup.R"
-})
+  stop("Run from the repository root or its analysis/ directory.")
+}, winslash = "/", mustWork = TRUE)
+data_dir = file.path(project_dir, "data")
+figure_dir = file.path(project_dir, "figures")
+dir.create(figure_dir, recursive = TRUE, showWarnings = FALSE)
 
 # packages
 library(dplyr)
@@ -120,7 +125,6 @@ print(upset_plot)
 # Export size in centimetres; panel proportions are controlled above.
 figure_width = 24
 figure_height = 15
-figure_dir = file.path(project_dir, "figures")
 ggsave(file.path(figure_dir, "si_f7.png"), upset_plot,
        width = figure_width, height = figure_height,
        units = "cm", dpi = 300, bg = "white")

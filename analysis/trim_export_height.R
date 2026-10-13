@@ -1,3 +1,15 @@
+# directories
+project_dir = normalizePath(if (dir.exists("data") && dir.exists("analysis")) {
+  "."
+} else if (dir.exists("../data") && dir.exists("../analysis")) {
+  ".."
+} else {
+  stop("Run from the repository root or its analysis/ directory.")
+}, winslash = "/", mustWork = TRUE)
+data_dir = file.path(project_dir, "data")
+figure_dir = file.path(project_dir, "figures")
+dir.create(figure_dir, recursive = TRUE, showWarnings = FALSE)
+
 # Remove only blank rows above and below an export; keep its full width and DPI.
 trim_export_height = function(filename) {
   image = png::readPNG(filename, native = TRUE, info = TRUE)
