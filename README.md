@@ -37,4 +37,4 @@ The following files exceed GitHub's 100 MiB file-size limit and are not included
 | `data/raw_illumina_plasmid_prediction.tsv` | 0.3 |
 | `data/sylph.tsv` | 3.7 |
 
-These tables can be found at [10.5281/zenodo.22944851](https://doi.org/10.5281/zenodo.22944851). Once deposited, download the required tables into `data/` before running analyses that use them.
+These files can be found at [10.5281/zenodo.22944851](https://doi.org/10.5281/zenodo.22944851). Wownload the required tables into `data/` before running analyses that use them.
