@@ -12,7 +12,7 @@ project_dir = normalizePath(if (dir.exists("data") && dir.exists("analysis")) {
 } else if (dir.exists("../data") && dir.exists("../analysis")) {
   ".."
 } else {
-  stop("Run from the repository root or its analysis/ directory.")
+  stop("Cannot locate the data/ and analysis/ directories.")
 }, winslash = "/", mustWork = TRUE)
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
@@ -472,7 +472,6 @@ xx <- wrap_plots(
 
 xx
 
-# Files are saved beside this document (or in your current working directory).
 ggsave(file.path(figure_dir, "si_f10.svg"), xx, device = svglite::svglite,
        width = figure_width, height = figure_height, units = "cm", bg = "white")
 ggsave(file.path(figure_dir, "si_f10.png"), xx, width = figure_width, height = figure_height,

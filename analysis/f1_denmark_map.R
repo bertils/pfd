@@ -4,7 +4,7 @@ project_dir = normalizePath(if (dir.exists("data") && dir.exists("analysis")) {
 } else if (dir.exists("../data") && dir.exists("../analysis")) {
   ".."
 } else {
-  stop("Run from the repository root or its analysis/ directory.")
+  stop("Cannot locate the data/ and analysis/ directories.")
 }, winslash = "/", mustWork = TRUE)
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")

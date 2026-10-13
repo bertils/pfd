@@ -4,7 +4,7 @@ project_dir = normalizePath(if (dir.exists("data") && dir.exists("analysis")) {
 } else if (dir.exists("../data") && dir.exists("../analysis")) {
   ".."
 } else {
-  stop("Run from the repository root or its analysis/ directory.")
+  stop("Cannot locate the data/ and analysis/ directories.")
 }, winslash = "/", mustWork = TRUE)
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
@@ -21,7 +21,6 @@ library(svglite)
 library(systemfonts)
 library(ragg)
 
-# Use Inter when installed; otherwise use the platform's sans-serif font.
 figure_font = if ("Inter" %in% systemfonts::system_fonts()$family) "Inter" else "sans"
 
 

@@ -5,7 +5,7 @@ This repository contains input data tables, R analysis code, and figure files fo
 ## Repository structure
 
 - **`data/`** — input tables and supporting files. Data-processing methods are described in the manuscript; upstream processing pipelines are not included here.
-- **`analysis/`** — R scripts, R Markdown notebooks, and shared helpers for the analyses and figure exports. See [analysis instructions](analysis/README.md) for dependencies and commands.
+- **`analysis/`** — R scripts, R Markdown notebooks, and shared helpers for the analyses and figure exports.
 - **`figures/`** — figure exports, using the paper's numbering. All analysis scripts save their figures here.
 
 ## Finding analyses and figures
