@@ -5,7 +5,12 @@ library(dplyr)
 library(tidyr)
 
 # directories
-project_dir = path.expand("~/Desktop/pfd_github")
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
 
@@ -13,6 +18,7 @@ figure_dir = file.path(project_dir, "figures")
 figure_theme = theme_bw(base_size = 12, base_family = "sans") +
   theme(
     axis.title = element_text(size = 12),
+    plot.margin = margin(0, 5.5, 0, 5.5),
     axis.text = element_text(size = 10, color = "black"),
     legend.title = element_text(size = 12),
     legend.text = element_text(size = 10),
@@ -40,7 +46,7 @@ plasmid_ids = c(
 point_col = "black"
 
 # load dfs
-sylph_mp = fread(file.path(data_dir, "sylph_260921.tsv"),
+sylph_mp = fread(file.path(data_dir, "sylph.tsv"),
                  select = c("sample", "representative", "rel_abund", "origin", "bin"))
 df_mp = sylph_mp %>%
   filter(is.finite(rel_abund),
@@ -155,11 +161,16 @@ p_facet = ggplot(dat, aes(x = Plasmid, y = MAG)) +
 # page size and margins
 figure_width = 21
 figure_height = 29.7
-figure_margin = margin(3, 3, 3, 3, unit = "mm")
+figure_margin = margin(0, 3, 0, 3, unit = "mm")
 p_facet = p_facet + theme(plot.margin = figure_margin)
 
 # save figures
 dir.create(figure_dir, showWarnings = FALSE, recursive = TRUE)
-ggsave(file.path(figure_dir, "si_s10.png"), p_facet,
+ggsave(file.path(figure_dir, "si_f9.png"), p_facet,
        width = figure_width, height = figure_height,
        units = "cm", dpi = 300, bg = "white")
+
+
+# Trim blank rows at the top and bottom; preserve horizontal whitespace.
+source(file.path(dirname(figure_dir), "analysis", "trim_export_height.R"))
+trim_export_height(file.path(figure_dir, "si_f9.png"))

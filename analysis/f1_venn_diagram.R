@@ -1,5 +1,10 @@
 # directories
-project_dir = path.expand("~/Desktop/pfd_github")
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
 
@@ -7,16 +12,17 @@ figure_dir = file.path(project_dir, "figures")
 library(dplyr)
 library(data.table)
 library(ggplot2)
+library(svglite)
 library(ggVennDiagram)
 
 # theme
-figure_theme = theme_bw(base_size = 9, base_family = "sans") +
+figure_theme = theme_bw(base_size = 5, base_family = "sans") +
   theme(
-    axis.title = element_text(size = 10),
-    axis.text = element_text(size = 9, color = "black"),
-    legend.title = element_text(size = 10),
-    legend.text = element_text(size = 9),
-    plot.title = element_text(size = 10),
+    axis.title = element_text(size = 5),
+    axis.text = element_text(size = 5, color = "black"),
+    legend.title = element_text(size = 5),
+    legend.text = element_text(size = 5),
+    plot.title = element_text(size = 5),
     panel.grid = element_blank(),
     panel.border = element_rect(color = "black", fill = NA, linewidth = 0.66),
     legend.position = "none"
@@ -46,11 +52,11 @@ venn_plot = ggVennDiagram(
   venn_sets,
   label = "both",
   label_alpha = 0,
-  label_size = 9 / .pt,
+  label_size = 5 / .pt,
   label_percent_digit = 2,
-  set_size = 10 / .pt,
+  set_size = 5 / .pt,
   label_font = "sans",
-  edge_size = 0.66
+  edge_size = 0.35
 ) +
   scale_fill_gradient(low = "#F7FBFF", high = "#73BFE2") +
   figure_theme +
@@ -80,26 +86,26 @@ venn_plot = venn_plot +
     data = region_labels,
     aes(x = X, y = Y, label = count_label),
     inherit.aes = FALSE,
-    hjust = 0.5, vjust = -0.15, size = 9 / .pt, family = "sans"
+    hjust = 0.5, vjust = -0.15, size = 5 / .pt, family = "sans"
   ) +
   geom_text(
     data = region_labels,
     aes(x = X, y = Y, label = percent_label),
     inherit.aes = FALSE,
-    hjust = 0.5, vjust = 1.15, size = 9 / .pt, family = "sans"
+    hjust = 0.5, vjust = 1.15, size = 5 / .pt, family = "sans"
   )
 
 # leave room for the outer labels without clipping them
 venn_plot = venn_plot +
   scale_x_continuous(expand = expansion(mult = 0.07)) +
   scale_y_continuous(expand = expansion(mult = 0.025)) +
-  coord_equal(clip = "off")
+  coord_cartesian(clip = "off")
 
 # page size and margins
-figure_width = 15
-figure_height = 11
-figure_margin = margin(3, 3, 3, 3, unit = "mm")
-venn_plot = venn_plot + theme(plot.margin = figure_margin)
+figure_width = 6.95
+figure_height = 5.15
+figure_margin = margin(1, 1, 1, 1, unit = "mm")
+venn_plot = venn_plot + theme(plot.margin = figure_margin, aspect.ratio = NULL)
 
 # save figure
 dir.create(figure_dir, showWarnings = FALSE, recursive = TRUE)
@@ -112,3 +118,9 @@ ggsave(
   dpi = 600,
   bg = "white"
 )
+
+# save svg
+ggsave(file.path(figure_dir, "f1_venn_diagram.svg"), venn_plot,
+       device = svglite, fix_text_size = FALSE,
+       width = figure_width, height = figure_height,
+       units = "cm", bg = "white")

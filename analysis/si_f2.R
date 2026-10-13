@@ -1,8 +1,12 @@
 # directories
-project_dir = path.expand("~/Desktop/pfd_github")
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
-
 
 # packages
 library(dplyr)
@@ -13,7 +17,7 @@ library(patchwork)
 library(scales)
 
 # df 
-pfd_md = fread(file.path(data_dir, "pfd_md_26_09_09.tsv")) 
+pfd_md = fread(file.path(data_dir, "pfd_metadata.tsv")) 
 pfd_md_rd = pfd_md %>%
   mutate(source = if_else(grepl("MFD", member_id), "MFD", "DB")) %>%
   select(representative, member_id, db, source, ptu, dptu, length, gc) %>%
@@ -34,15 +38,16 @@ ptu_df = pfd_md_rd %>%
   ungroup()
 
 # colours
-col_db = "#ef6351"
-col_shared = "grey50"
-col_mfd = "#1f4e8c"
+col_db = "gray"
+col_shared = "#FFD700"
+col_mfd = "blue"
 
 # theme
 figure_theme = theme_bw(base_size = 12, base_family = "sans") +
   theme(
     strip.text = element_text(size = 12, face = "plain"),
     axis.title = element_text(size = 12),
+    plot.margin = margin(0, 5.5, 0, 5.5),
     axis.text = element_text(size = 10, color = "black"),
     legend.title = element_text(size = 12),
     legend.text = element_text(size = 10),
@@ -155,7 +160,8 @@ ptu_cumu = ggplot() +
     linewidth = 2.5
   ) +
   scale_fill_manual(
-    name = "PTU category",
+    name = "PTU categories",
+    guide = "none",
     breaks = c("DB-only PTUs", "Shared PTUs", "MFD-only PTUs"),
     labels = c("DB", "Shared", "MFD"),
     values = c(
@@ -165,21 +171,29 @@ ptu_cumu = ggplot() +
     )
   ) +
   scale_color_manual(
+    name = "PTU categories",
+    breaks = c("DB-only PTUs", "Shared PTUs", "MFD-only PTUs"),
+    labels = c("DB-only", "Shared", "MFD-only"),
     values = c(
       "DB-only PTUs" = col_db,
       "Shared PTUs" = col_shared,
       "MFD-only PTUs" = col_mfd
     ),
-    guide = "none"
+    guide = guide_legend(override.aes = list(linewidth = 1.5))
   ) +
   scale_x_continuous(labels = comma) +
   scale_y_continuous(labels = comma) +
   labs(
-    x = "Number of PTUs added",
-    y = "Cumulative plasmid count"
+    x = "PTUs",
+    y = "Accumulative plasmid count"
   ) +
   figure_theme +
-  theme(legend.position = "right")
+  theme(
+    legend.position = "inside",
+    legend.position.inside = c(0.95, 0.05),
+    legend.justification = c(1, 0),
+    legend.background = element_rect(fill = "white", color = NA)
+  )
 ptu_cumu
 
 # shared members
@@ -203,10 +217,14 @@ shared_ptu_long = shared_ptu_wide %>%
 # total size
 p_top = ggplot(shared_ptu_wide, aes(x = ptu, y = total)) +
   geom_col(fill = col_shared, width = 1) +
-  scale_y_sqrt(breaks = c(0, 500, 1500, 2500), labels = comma) +
+  scale_y_continuous(
+    trans = pseudo_log_trans(sigma = 0.1),
+    breaks = c(2, 10, 100, 500, 2000, 20000),
+    labels = comma
+  ) +
   labs(
     x = NULL,
-    y = "Plasmids\nper PTU"
+    y = "Total count (Shared)"
   ) +
   figure_theme +
   theme(
@@ -218,10 +236,14 @@ p_top = ggplot(shared_ptu_wide, aes(x = ptu, y = total)) +
 # mfd count
 p_mid = ggplot(shared_ptu_wide, aes(x = ptu, y = MFD)) +
   geom_col(fill = col_mfd, width = 1) +
-  scale_y_sqrt(breaks = c(0, 1, 3, 5), labels = comma) +
+  scale_y_continuous(
+    trans = pseudo_log_trans(sigma = 0.1),
+    breaks = c(1, 2, 10, 50, 150),
+    labels = comma
+  ) +
   labs(
     x = NULL,
-    y = "MFD plasmids\nper PTU"
+    y = "MFD count (Shared)"
   ) +
   figure_theme +
   theme(
@@ -239,8 +261,8 @@ p_bottom = ggplot(shared_ptu_long, aes(x = ptu, y = n, fill = source)) +
   ) +
   scale_y_continuous(labels = percent) +
   labs(
-    x = "Shared PTUs\n(largest to smallest)",
-    y = "Plasmid source (%)"
+    x = "Shared PTUs",
+    y = "Composition [%]"
   ) +
   figure_theme +
   theme(
@@ -249,7 +271,7 @@ p_bottom = ggplot(shared_ptu_long, aes(x = ptu, y = n, fill = source)) +
     legend.position = "right"
   )
 
-ptu_shared = p_top / p_mid / p_bottom + plot_layout(heights = c(1, 1, 3))
+ptu_shared = p_top / p_mid / p_bottom + plot_layout(heights = c(1, 1, 1))
 ptu_shared
 
 # size groups
@@ -271,12 +293,14 @@ ptu_size_plot = ptu_df %>%
 ptu_bar = ggplot(ptu_size_plot, aes(x = size_bin, y = n, fill = ptu_category)) +
   geom_col(width = 0.75) +
   geom_text(
-    aes(label = comma(n), vjust = if_else(size_bin == "100+", -1.7, -0.3)),
+    aes(label = comma(n)),
+    vjust = -0.3,
     hjust = 0.5,
-    size = 10 / .pt
+    size = 8 / .pt
   ) +
-  facet_wrap(~ ptu_category, nrow = 1) +
-  scale_x_discrete(expand = expansion(add = 1.1)) +
+  facet_wrap(~ ptu_category, nrow = 1,
+    labeller = as_labeller(c(DB = "DB-only", Shared = "Shared", MFD = "MFD-only"))) +
+  scale_x_discrete(expand = expansion(add = 0.6), guide = guide_axis(n.dodge = 1)) +
   scale_fill_manual(values = c(
     "DB" = col_db,
     "Shared" = col_shared,
@@ -287,30 +311,35 @@ ptu_bar = ggplot(ptu_size_plot, aes(x = size_bin, y = n, fill = ptu_category)) +
     expand = expansion(mult = c(0, 0.25))
   ) +
   labs(
-    x = "Plasmids per PTU",
-    y = "Number of PTUs"
+    x = "PTU size distribution per PTU category",
+    y = "No. of PTUs"
   ) +
   figure_theme +
   theme(
     legend.position = "none",
     strip.background = element_blank(),
-    axis.text.x = element_text(angle = 45, hjust = 1)
+    axis.text.x = element_text(angle = 0, hjust = 0.5)
   )
 ptu_bar
 
 # combine plots
+# Remove vertical margins from the nested layouts as well as each panel.
+block_theme = theme(plot.margin = margin(0, 5.5, 0, 5.5))
+left_plots = (ptu_cumu / ptu_bar) +
+  plot_layout(heights = c(2, 1)) +
+  plot_annotation(theme = block_theme)
+right_plots = ((p_top / p_mid / p_bottom) +
+  plot_layout(heights = c(1, 1, 1)) +
+  plot_annotation(theme = block_theme)) & theme(legend.position = "none")
+
+# a small gap between the two blocks
 final_ptu = (
-  ptu_cumu + p_top + p_mid + ptu_bar + p_bottom +
-    plot_layout(
-      design = "
-      AB
-      AC
-      DE
-      ",
-      widths = c(2.3, 1.2),
-      heights = c(1, 1, 1)
+  wrap_plots(
+      left_plots, plot_spacer(), right_plots,
+      nrow = 1,
+      widths = grid::unit(c(4, 0.15, 1.5), c("null", "cm", "null"))
     )
-) & theme(legend.position = "none")
+)
 final_ptu
 
 # save figure
@@ -319,11 +348,16 @@ dir.create(figure_dir, showWarnings = FALSE, recursive = TRUE)
 ggsave(
   filename = file.path(figure_dir, "si_f2.png"),
   plot = final_ptu + plot_annotation(
-    theme = theme(plot.margin = margin(0, 10, 0, 10, unit = "mm"))
+    theme = theme(plot.margin = margin(0, 0, 0, 0, unit = "mm"))
   ),
   width = 21,
   height = 14,
   units = "cm",
-  dpi = 600,
+  dpi = 300,
   bg = "white"
 )
+
+
+# Trim blank rows at the top and bottom; preserve horizontal whitespace.
+source(file.path(dirname(figure_dir), "analysis", "trim_export_height.R"))
+trim_export_height(file.path(figure_dir, "si_f2.png"))

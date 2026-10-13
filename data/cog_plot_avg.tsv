@@ -1,0 +1,61 @@
+source	cog_letter	cog_group	mean_percent	percent	percent_plot	label	label_x	is_total	cog_letter_chr	y_id	y_label
+DB	A	Information storage and processing	2.2635827252023	1.19456585953334	1.19456585953334	1.2		FALSE	A	Information storage and processing___A	A
+DB	B	Information storage and processing	1.10022159259215	0.58062254045278	0.58062254045278	0.6		FALSE	B	Information storage and processing___B	B
+DB	C	Metabolism	3.82598563797565	2.01909644003939	2.01909644003939	2.0		FALSE	C	Metabolism___C	C
+DB	D	Cellular processes and signaling	11.2616612476241	5.94314309711792	5.94314309711792	5.9		FALSE	D	Cellular processes and signaling___D	D
+DB	E	Metabolism	5.40254700284375	2.85109889392028	2.85109889392028	2.9		FALSE	E	Metabolism___E	E
+DB	F	Metabolism	3.03857052754307	1.60355200345628	1.60355200345628	1.6		FALSE	F	Metabolism___F	F
+DB	G	Metabolism	5.02948137113283	2.65422008668903	2.65422008668903	2.7		FALSE	G	Metabolism___G	G
+DB	H	Metabolism	3.51098809265369	1.85286204123039	1.85286204123039	1.9		FALSE	H	Metabolism___H	H
+DB	I	Metabolism	2.772099832398	1.46292679394114	1.46292679394114	1.5		FALSE	I	Metabolism___I	I
+DB	J	Information storage and processing	5.39860930705521	2.84902084441856	2.84902084441856	2.8		FALSE	J	Information storage and processing___J	J
+DB	K	Information storage and processing	12.148306978987	6.41105474372778	6.41105474372778	6.4		FALSE	K	Information storage and processing___K	K
+DB	L	Information storage and processing	24.5070559319148	12.9331665275556	12.9331665275556	12.9		FALSE	L	Information storage and processing___L	L
+DB	M	Cellular processes and signaling	7.78303280868382	4.10735829239494	4.10735829239494	4.1		FALSE	M	Cellular processes and signaling___M	M
+DB	N	Cellular processes and signaling	3.18697974261634	1.68187234915994	1.68187234915994	1.7		FALSE	N	Cellular processes and signaling___N	N
+DB	NA	NA	28.7065408604597	15.1493706306402	15.1493706306402	15.1		FALSE	NA	NA___NA	NA
+DB	O	Cellular processes and signaling	4.08688777205388	2.15678293966638	2.15678293966638	2.2		FALSE	O	Cellular processes and signaling___O	O
+DB	P	Metabolism	6.17841494314083	3.26054951512632	3.26054951512632	3.3		FALSE	P	Metabolism___P	P
+DB	Q	Metabolism	3.55115644049162	1.87406017833703	1.87406017833703	1.9		FALSE	Q	Metabolism___Q	Q
+DB	S	Poorly characterized	29.6112378216997	15.6268084954411	15.6268084954411	15.6		FALSE	S	Poorly characterized___S	S
+DB	T	Cellular processes and signaling	7.1034696984031	3.74873084666415	3.74873084666415	3.7		FALSE	T	Cellular processes and signaling___T	T
+DB	U	Cellular processes and signaling	10.8649133685399	5.73376640152848	5.73376640152848	5.7		FALSE	U	Cellular processes and signaling___U	U
+DB	V	Cellular processes and signaling	5.00461977807708	2.64109981944747	2.64109981944747	2.6		FALSE	V	Cellular processes and signaling___V	V
+DB	W	Cellular processes and signaling	2.23247980856291	1.17815184385119	1.17815184385119	1.2		FALSE	W	Cellular processes and signaling___W	W
+DB	Z	Cellular processes and signaling	0.92114649413674	0.486118815660355	0.486118815660355	0.5		FALSE	Z	Cellular processes and signaling___Z	Z
+DB	Y	Cellular processes and signaling		0	0	0.0		FALSE	Y	Cellular processes and signaling___Y	Y
+MFD	A	Information storage and processing	3.98196337414863	1.53730559999637	-1.53730559999637	1.5		FALSE	A	Information storage and processing___A	A
+MFD	B	Information storage and processing	3.06980685775226	1.18515185347199	-1.18515185347199	1.2		FALSE	B	Information storage and processing___B	B
+MFD	C	Metabolism	15.1896806266023	5.8642380392122	-5.8642380392122	5.9		FALSE	C	Metabolism___C	C
+MFD	D	Cellular processes and signaling	9.17061154699872	3.5404726668554	-3.5404726668554	3.5		FALSE	D	Cellular processes and signaling___D	D
+MFD	E	Metabolism	10.9097030525253	4.21187892029029	-4.21187892029029	4.2		FALSE	E	Metabolism___E	E
+MFD	F	Metabolism	5.88100437481893	2.27046311317349	-2.27046311317349	2.3		FALSE	F	Metabolism___F	F
+MFD	G	Metabolism	10.5921683430255	4.08928917215841	-4.08928917215841	4.1		FALSE	G	Metabolism___G	G
+MFD	H	Metabolism	6.69901462813583	2.58627007198244	-2.58627007198244	2.6		FALSE	H	Metabolism___H	H
+MFD	I	Metabolism	8.88967977990006	3.43201411558357	-3.43201411558357	3.4		FALSE	I	Metabolism___I	I
+MFD	J	Information storage and processing	6.69481287486811	2.58464791270539	-2.58464791270539	2.6		FALSE	J	Information storage and processing___J	J
+MFD	K	Information storage and processing	13.0740106166136	5.04744716282813	-5.04744716282813	5.0		FALSE	K	Information storage and processing___K	K
+MFD	L	Information storage and processing	33.8270755426112	13.0595256100955	-13.0595256100955	13.1		FALSE	L	Information storage and processing___L	L
+MFD	M	Cellular processes and signaling	11.6581943659268	4.50084689400672	-4.50084689400672	4.5		FALSE	M	Cellular processes and signaling___M	M
+MFD	N	Cellular processes and signaling	7.50027738026859	2.89561136927289	-2.89561136927289	2.9		FALSE	N	Cellular processes and signaling___N	N
+MFD	NA	NA	20.7373100283463	8.00599599745284	-8.00599599745284	8.0		FALSE	NA	NA___NA	NA
+MFD	O	Cellular processes and signaling	7.51305008941285	2.90054249380861	-2.90054249380861	2.9		FALSE	O	Cellular processes and signaling___O	O
+MFD	P	Metabolism	11.0908246503118	4.28180403521353	-4.28180403521353	4.3		FALSE	P	Metabolism___P	P
+MFD	Q	Metabolism	9.69183479738704	3.74169988729451	-3.74169988729451	3.7		FALSE	Q	Metabolism___Q	Q
+MFD	S	Poorly characterized	22.7527122303073	8.78407675817355	-8.78407675817355	8.8		FALSE	S	Poorly characterized___S	S
+MFD	T	Cellular processes and signaling	10.3045881985182	3.97826390018606	-3.97826390018606	4.0		FALSE	T	Cellular processes and signaling___T	T
+MFD	U	Cellular processes and signaling	10.6005239785704	4.09251500929144	-4.09251500929144	4.1		FALSE	U	Cellular processes and signaling___U	U
+MFD	V	Cellular processes and signaling	8.14692954382043	3.14526258372952	-3.14526258372952	3.1		FALSE	V	Cellular processes and signaling___V	V
+MFD	W	Cellular processes and signaling	4.61081073141318	1.78008296207404	-1.78008296207404	1.8		FALSE	W	Cellular processes and signaling___W	W
+MFD	Z	Cellular processes and signaling	3.40534762663156	1.31469315120819	-1.31469315120819	1.3		FALSE	Z	Cellular processes and signaling___Z	Z
+MFD	Y	Cellular processes and signaling	3.03030303030303	1.16990071993488	-1.16990071993488	1.2		FALSE	Y	Cellular processes and signaling___Y	Y
+DB	total_row	NA		15.1493706306402	0	15.1	0.5	TRUE	total_row	NA___total_row	""
+MFD	total_row	NA		8.00599599745284	0	8.0	-0.5	TRUE	total_row	NA___total_row	""
+DB	total_row	Poorly characterized		15.6268084954411	0	15.6	0.5	TRUE	total_row	Poorly characterized___total_row	""
+MFD	total_row	Poorly characterized		8.78407675817355	0	8.8	-0.5	TRUE	total_row	Poorly characterized___total_row	""
+DB	total_row	Information storage and processing		23.9684305156881	0	24.0	0.5	TRUE	total_row	Information storage and processing___total_row	""
+MFD	total_row	Information storage and processing		23.4140781390974	0	23.4	-0.5	TRUE	total_row	Information storage and processing___total_row	""
+DB	total_row	Cellular processes and signaling		27.6770244054908	0	27.7	0.5	TRUE	total_row	Cellular processes and signaling___total_row	""
+MFD	total_row	Cellular processes and signaling		29.3181917503678	0	29.3	-0.5	TRUE	total_row	Cellular processes and signaling___total_row	""
+DB	total_row	Metabolism		17.5783659527399	0	17.6	0.5	TRUE	total_row	Metabolism___total_row	""
+MFD	total_row	Metabolism		30.4776573549084	0	30.5	-0.5	TRUE	total_row	Metabolism___total_row	""

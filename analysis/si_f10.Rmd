@@ -1,0 +1,479 @@
+---
+title: "si_f10"
+author: "Bertil Sørensen"
+date: "2026-07-04"
+output: html_document
+---
+  
+# libraries
+```{r}
+library(dplyr)
+library(data.table)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
+data_dir = file.path(project_dir, "data")
+figure_dir = file.path(project_dir, "figures")
+dir.create(figure_dir, showWarnings = FALSE, recursive = TRUE)
+```
+
+```{r}
+pfd_md = fread(file.path(data_dir, "pfd_metadata.tsv")) 
+```
+
+
+# correlation
+```{r}
+pc = fread(file.path(data_dir, "260515_new_eggnog_df.tsv"),
+           select = c("member_id", "representative", "translation_table"))
+pc_arc = pc %>%
+  distinct(member_id, .keep_all = T) %>%
+  filter(translation_table == "TT34") %>%
+  select(representative) %>%
+  distinct(representative)
+```
+
+
+```{r}
+sylph_mp = fread(file.path(data_dir, "sylph.tsv"))
+sylph_mp2 = sylph_mp %>%
+  filter(
+    origin == "plasmid" |
+      (origin == "mag" & !is.na(bin))
+  )
+
+plasmid = sylph_mp2 %>%
+  filter(origin == "plasmid") %>%
+  inner_join(pc_arc, by = "representative") #%>%
+#filter(representative == "contig_57306__MFD09567") # remove after
+
+
+mag = sylph_mp2 %>%
+  filter(origin == "mag")
+
+comb_mp = bind_rows(plasmid, mag)
+comb_mp2 = comb_mp %>%
+  mutate(
+    bin = if_else(is.na(bin), representative, bin)
+  )
+
+
+```
+
+
+```{r}
+suppressPackageStartupMessages({
+  library(dplyr); library(tidyr); library(tibble)
+})
+
+# ----- set these to match your columns -------------------------------------
+sample_col  <- "sample"      # column identifying each metagenome sample
+value_col   <- "rel_abund"   # abundance/coverage value to correlate
+min_samples <- 5            # min co-occurring samples to test (>=3 required; 5+ advised)
+
+# ----- 1. tidy long table (bin already = representative for plasmids) ------
+dat <- comb_mp2 %>%
+  transmute(feature = bin, origin,
+            sample = .data[[sample_col]],
+            value  = .data[[value_col]], taxa_gtdb) %>%
+  filter(!is.na(value)) %>%
+  group_by(feature, origin, sample) %>%      # collapse multi-contig bins
+  summarise(value = sum(value), .groups = "drop")
+
+tax <- comb_mp2 %>%                            # one taxonomy per feature
+  distinct(feature = bin, origin, taxa_gtdb) %>%
+  group_by(feature, origin) %>% slice(1L) %>% ungroup()
+
+# ----- 2. samples x feature matrices (absence = NA) ------------------------
+to_mat <- function(df)
+  df %>% pivot_wider(id_cols = sample, names_from = feature,
+                     values_from = value) %>%
+  column_to_rownames("sample") %>% as.matrix()
+
+Pw <- to_mat(filter(dat, origin == "plasmid"))
+Mw <- to_mat(filter(dat, origin == "mag"))
+common <- intersect(rownames(Pw), rownames(Mw))
+P <- Pw[common, , drop = FALSE]   # samples x plasmids
+M <- Mw[common, , drop = FALSE]   # samples x mags
+
+# ----- 3. pairwise-complete Pearson r for ALL pairs (only co-present samples)
+presP <- !is.na(P); storage.mode(presP) <- "double"
+presM <- !is.na(M); storage.mode(presM) <- "double"
+Pz <- P; Pz[is.na(Pz)] <- 0
+Mz <- M; Mz[is.na(Mz)] <- 0
+
+n   <- crossprod(presP, presM)        # plasmids x mags : co-occurring samples
+Sx  <- crossprod(Pz,       presM)
+Sy  <- crossprod(presP,    Mz)
+Sxx <- crossprod(Pz * Pz,  presM)
+Syy <- crossprod(presP,    Mz * Mz)
+Sxy <- crossprod(Pz,       Mz)
+
+R <- (n * Sxy - Sx * Sy) /
+  sqrt((n * Sxx - Sx^2) * (n * Syy - Sy^2))   # Pearson r, plasmids x mags
+
+# ----- 4. long, filter to co-occurring pairs, p-value + FDR ----------------
+res <- tibble(
+  plasmid   = rep(rownames(R), times = ncol(R)),
+  mag       = rep(colnames(R), each  = nrow(R)),
+  pearson   = as.vector(R),
+  n_samples = as.vector(n)
+) %>%
+  filter(n_samples >= min_samples, is.finite(pearson)) %>%
+  mutate(
+    t       = pearson * sqrt((n_samples - 2) / (1 - pearson^2)),
+    p_value = 2 * pt(-abs(t), df = n_samples - 2),
+    p_adj   = p.adjust(p_value, method = "BH")          # FDR correction
+  ) %>%
+  select(-t)
+
+# ----- 5. attach taxonomy for plasmid and mag ------------------------------
+res <- res %>%
+  left_join(tax %>% filter(origin == "plasmid") %>%
+              select(plasmid = feature, plasmid_taxa_gtdb = taxa_gtdb), by = "plasmid") %>%
+  left_join(tax %>% filter(origin == "mag") %>%
+              select(mag = feature, mag_taxa_gtdb = taxa_gtdb), by = "mag") %>%
+  arrange(p_adj, desc(abs(pearson)))
+
+res2 = res %>%
+  filter(pearson >= 0.5)
+
+# write_xlsx(
+#   res2,
+#   path = file.path(data_dir, "co_corr_all_arc_supplementary.xlsx")
+# )
+
+
+```
+
+
+
+```{r}
+orc_group = pc %>%
+  #filter(orc_group == "Y") %>%
+  filter(representative == member_id) %>% select(member_id, representative, translation_table) %>%
+  filter(translation_table == "TT34")
+
+sylph = sylph_mp
+sylph2 = sylph %>%
+  filter(rel_abund > 0)
+
+library(readxl)
+mfd_meta = read_excel(file.path(data_dir, "2025-05-28_mfd_db.xlsx")) %>%
+  select(fieldsample_barcode, mfd_sampletype, mfd_hab1, mfd_hab2, mfd_hab3) %>%
+  rename(sample = fieldsample_barcode) 
+
+
+orc_group2 = orc_group %>%
+  distinct(representative, .keep_all = T) %>% select(-member_id) %>%
+  inner_join(sylph2, by = "representative") %>%
+  left_join(mfd_meta, by = "sample") %>% select(-mfd_sampletype, mfd_hab1) %>%
+  filter(translation_table == "TT34")
+
+orc_group3 = orc_group2 %>%
+  mutate(
+    rel_abund = coalesce(as.numeric(rel_abund), 0),
+    sample  = replace_na(sample, "NA_sample"),
+    st_hab1 = replace_na(st_hab1, "NA_habitat")
+  ) 
+```
+
+# heatmap for paper
+```{r}
+sylph_mags = sylph_mp
+mags = fread(file.path(data_dir, "MFD_mags_V4.tsv")) %>%
+  select(bin, MAG_status)
+sylph_mags2 = sylph_mags %>%
+  left_join(mags)
+
+library(vegan)
+
+# 
+# pearson = fread(file.path(data_dir, "pairs_correlation_pearson.tsv"))
+# pearson2 = pearson %>%
+#   inner_join(test2 %>% distinct(representative, .keep_all = T) %>% rename(plasmid_rep = representative), by = "plasmid_rep") %>%
+#   filter(r >= 0.7) %>%
+#   distinct(mag_rep, .keep_all = T)
+
+plot_mags = sylph_mags2 %>%
+  #rename(mag_rep = plasmid_rep) %>%
+  #inner_join(pearson2 %>% mutate(bin = sub(".*_", "", mag_rep)) %>% select(mag_rep, bin, r, n), by = "bin") %>% 
+  filter(bin == "MFD01716.bin.1.47") %>%
+  #rename(rep = mag_rep) %>% 
+  mutate(origin = "mag") %>%
+  select(sample, st_hab1, rel_abund, origin, taxa_gtdb, MAG_status, bin)
+
+
+plot_plasmids = sylph_mags2 %>%
+  inner_join(orc_group3 %>% distinct(representative), by = "representative") %>%
+  select(-bin) %>% rename(bin = representative) %>% mutate(origin = "plasmid") %>%
+  select(sample, st_hab1, rel_abund, origin, taxa_gtdb, MAG_status, bin)
+
+
+combine = rbind(plot_mags, plot_plasmids) %>%
+  left_join(mfd_meta, by = "sample") %>% select(-mfd_sampletype, mfd_hab1) 
+
+t_combine = combine %>%
+  select(-st_hab1, -mfd_hab1, -mfd_hab2, -mfd_hab3) %>%
+  #left_join(pfd_md2 %>% filter(representative == member_id) %>% select(representative, taxa_gtdb), by = "representative")  %>%
+  left_join(mfd_meta %>% mutate(st_hab1 = paste(mfd_sampletype, mfd_hab1, sep = ";")), by = "sample") %>%
+  arrange(mfd_hab2) %>%
+  mutate(sample = factor(sample, levels = unique(sample))) %>%
+  mutate(mfd_hab2 = factor(mfd_hab2, levels = unique(mfd_hab2))) %>%
+  mutate(y = "MFD02") %>%
+  mutate(bin = factor(bin, levels = unique(bin)))
+#mutate(sample = factor(sample, levels = level, ordered = TRUE))
+
+## make sample x representative matrix
+all_groups_wide = t_combine %>%
+  select(sample, bin, rel_abund) %>%
+  mutate(rel_abund = coalesce(as.numeric(rel_abund), 0)) %>%
+  distinct(sample, bin, .keep_all = TRUE) %>%
+  pivot_wider(
+    id_cols = sample,
+    names_from = bin,
+    values_from = rel_abund,
+    values_fill = 0
+  ) %>%
+  as.data.frame()
+
+## remove samples with no abundance
+all_groups_wide = all_groups_wide %>%
+  filter(rowSums(select(., -sample)) > 0)
+
+mat <- all_groups_wide[, -1]
+rownames(mat) <- all_groups_wide$sample
+
+## order x-axis: samples
+sample_dist <- vegdist(decostand(mat, method = "hellinger"), method = "bray")
+sample_clust <- hclust(sample_dist, method = "ward.D2")
+#sample_level <- sample_clust$labels[order.dendrogram(as.dendrogram(sample_clust))]
+sample_level <- all_groups_wide %>%
+  left_join(
+    t_combine %>%
+      select(sample, st_hab1, mfd_hab2) %>%
+      distinct(),
+    by = "sample"
+  ) %>%
+  arrange(st_hab1, mfd_hab2, desc(`MFD01716.bin.1.47`)) %>%
+  pull(sample) %>%
+  unique()
+
+## order y-axis: representatives
+rep_dist <- vegdist(decostand(t(mat), method = "hellinger"), method = "bray")
+rep_clust <- hclust(rep_dist, method = "ward.D2")
+rep_level <- rep_clust$labels[order.dendrogram(as.dendrogram(rep_clust))]
+
+t_combine2 <- t_combine %>%
+  mutate(
+    sample = factor(sample, levels = sample_level, ordered = TRUE),
+    bin = factor(bin, levels = rep_level, ordered = TRUE)
+  ) %>%
+  filter(!is.na(sample), !is.na(bin)) %>%
+  group_by(sample) %>% mutate(n_sample = n()) %>% ungroup() %>%
+  filter(n_sample >= 5) #%>%
+#distinct(bin) %>% filter(grepl("MFD", bin))
+
+
+```
+
+
+
+
+```{r, fig.width=8.2677, fig.height=6.6929, out.width="100%"}
+library(patchwork)
+library(scales)
+library(svglite)
+
+highlight_reps_plas = c(
+  "contig_91650__MFD01716",
+  "contig_33344__MFD04752",
+  "contig_57306__MFD09567",
+  "contig_90854__MFD01716",
+  "contig_42799__MFD05580",
+  "contig_51694__MFD09567",
+  "contig_103805__MFD04752"
+)
+
+highlight_reps_mag = c("MFD01716.bin.1.47")
+
+# Run after the chunk that creates t_combine2.
+# Figure dimensions in cm; 21 cm is the full width of portrait A4.
+figure_width <- 32
+figure_height <- 23
+label_angle <- 55
+
+focal_reps <- c(highlight_reps_mag, highlight_reps_plas)
+focal_tiles <- t_combine2 %>%
+  filter(bin %in% focal_reps) %>%
+  mutate(bin = factor(as.character(bin), levels = focal_reps))
+main_tiles <- t_combine2 %>% filter(!bin %in% focal_reps)
+sample_slots <- t_combine2 %>% distinct(sample, st_hab1)
+habitats <- t_combine2 %>% distinct(sample, st_hab1, mfd_hab2)
+
+mfd_hab2_cols = c(
+  "NA"                                   = "black",
+  "Sphagnum acid bogs"                   = "#4F86A0",
+  "Temperate heath"                      = "#E79A95",
+  "Standing freshwater"                  = "#63BCE5",
+  "Semi-natural tall-herb humid meadows" = "#8FCB9B",
+  "Sea dunes"                            = "#D8C3A5",
+  "Temperate forests"                    = "#6A1FB0",
+  "Calcareous fens"                      = "#A8D08D",
+  "Fallow"                               = "#C49A6C",
+  "Parks"                                = "#7FB069",
+  "Poales, grass"                        = "#E6D63B",
+  "Running freshwater"                   = "#3C91E6",
+  "Forest (non-habitattype)"             = "#4E6E58",
+  "Salt marshes and salt meadows"        = "#C9B037",
+  "Influent"                             = "#F28E2B",
+  "Potential pollution"                  = "#D95F02",
+  "Biogas sludge"                        = "#C73A2B",
+  "Groundwater"                          = "#1A178E",
+  "High salinity (saltworks)"            = "#7A9E9F",
+  "Activated sludge"                     = "#8C564B"
+)
+
+abundance_scale <- scale_fill_gradientn(
+  colours = c("#FFFFFF", "#D9E7F5", "#9CC0DE", "#FCE0BC", "#F7A85B",
+              "#E8602C", "#B81D13", "#6E0B0B", "#000000"),
+  values = scales::rescale(c(0, .10, .25, .35, .50, .75, 1, 1.40, 2),
+                           from = c(0, 2)),
+  limits = c(0, 2), oob = scales::squish,
+  breaks = c(0, .5, 1, 1.5, 2),
+  labels = c("0.0", "0.5", "1.0", "1.5", "2.0"),
+  name = "Relative\nabundance [%]"
+)
+
+# Identical facets and expansion keep all three rows aligned.
+facet_samples <- facet_grid(. ~ st_hab1, scales = "free_x", space = "free_x")
+plot_theme <- theme_bw(base_size = 9) +
+  theme(
+    axis.title = element_blank(), axis.text = element_blank(),
+    axis.ticks = element_blank(), axis.ticks.length = grid::unit(0, "mm"),
+    panel.grid = element_blank(),
+    panel.border = element_rect(colour = "grey35", linewidth = .3),
+    panel.spacing.x = grid::unit(3, "mm"),
+    strip.background = element_blank(), strip.text = element_blank(),
+    strip.clip = "off",
+    plot.margin = margin(0, 0, 0, 0),
+    legend.margin = margin(0, 0, 0, 0),
+    legend.box.spacing = grid::unit(1.5, "mm")
+  )
+
+heatmap <- function(data) {
+  ggplot(data, aes(sample, bin, fill = rel_abund)) +
+    geom_blank(data = sample_slots, aes(x = sample), inherit.aes = FALSE) +
+    geom_tile(colour = "grey25", linewidth = .18) +
+    facet_samples +
+    scale_x_discrete(expand = expansion(add = .5)) +
+    scale_y_discrete(position = "right", expand = expansion(add = .5)) +
+    abundance_scale + plot_theme
+}
+
+# Anchor each slanted heading at the centre of its own facet.
+heading_labels <- sample_slots %>%
+  group_by(st_hab1) %>% summarise(midpoint = (n() + 1) / 2, .groups = "drop")
+p_headings <- ggplot(sample_slots, aes(x = sample)) +
+  geom_blank() + facet_samples +
+  geom_text(data = heading_labels,
+            aes(x = midpoint, y = 0, label = st_hab1),
+            inherit.aes = FALSE, angle = label_angle, hjust = 0, vjust = 0,
+            size = 10 / .pt) +
+  scale_x_discrete(expand = expansion(add = .5)) +
+  scale_y_continuous(limits = c(0, 1), expand = expansion(mult = 0)) +
+  coord_cartesian(clip = "off") + plot_theme +
+  theme(panel.border = element_blank(), panel.background = element_blank(),
+        plot.background = element_blank(), plot.margin = margin(0, 0, 0, 0, unit = "mm"))
+
+p_focal <- heatmap(focal_tiles) +
+  theme(
+    axis.text.y.right = element_text(size = 8, margin = margin(l = 2)),
+    legend.position = "none",
+    plot.margin = margin(0, 0, 0, 0, unit = "mm")
+  )
+
+# Keep this guide on the main heatmap: it is centred on the main tiles.
+origin_colours <- c(plasmid = "#000000", mag = "#B3B3B3")
+
+p_main <- heatmap(main_tiles) +
+  # An invisible point layer supplies a compact key for the left-hand strips.
+  geom_point(aes(colour = origin), alpha = 0, size = 0, show.legend = TRUE) +
+  scale_colour_manual(values = origin_colours, name = "Sequence type",
+                      limits = c("plasmid", "mag"), breaks = c("plasmid", "mag"), labels = c("Plasmid", "MAG")) +
+  guides(fill = guide_colourbar(
+    title.position = "top", title.hjust = 0,
+    barheight = grid::unit(40, "mm"), barwidth = grid::unit(3, "mm"), order = 1
+  ), colour = guide_legend(order = 2,
+                           keyheight = grid::unit(3, "mm"),
+                           override.aes = list(alpha = 1, size = 3, shape = 15))) +
+  theme(
+    legend.position = "right", legend.justification = c(0, .5),
+    legend.box = "vertical", legend.box.just = "left",
+    legend.spacing.y = grid::unit(6, "mm"),
+    legend.key.spacing.y = grid::unit(0, "mm"),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 10)
+  )
+
+# No y expansion or margins: the thin habitat band touches the main tiles.
+p_habitat <- ggplot(habitats, aes(sample, 1, fill = mfd_hab2)) +
+  geom_tile(height = 1) + facet_samples +
+  scale_x_discrete(expand = expansion(add = .5)) +
+  scale_y_continuous(expand = expansion(mult = 0)) +
+  scale_fill_manual(values = mfd_hab2_cols, name = "MFD02") +
+  plot_theme +
+  guides(fill = guide_legend(ncol = 3, byrow = TRUE, title.position = "left")) +
+  theme(
+    legend.position = "bottom", legend.justification = "center",
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 10),
+    legend.key.size = grid::unit(3, "mm"),
+    legend.spacing.x = grid::unit(1, "mm"),
+    legend.box.spacing = grid::unit(4, "mm")
+  )
+
+origin_strip <- function(data) {
+  ggplot(distinct(data, bin, origin), aes(1, bin, fill = origin)) +
+    geom_tile(colour = "grey25", linewidth = .18) +
+    scale_fill_manual(values = origin_colours, guide = "none") +
+    scale_x_continuous(expand = expansion(mult = 0)) +
+    scale_y_discrete(expand = expansion(add = .5)) +
+    theme_void() + theme(plot.margin = margin(0, 0, 0, 0))
+}
+
+# Patchwork keeps panel edges aligned; guides stay with their own plots.
+xx <- wrap_plots(
+  F = p_headings,
+  A = origin_strip(focal_tiles) +
+    theme(plot.margin = margin(0, 0, 0, 0, unit = "mm")),
+  B = p_focal,
+  C = origin_strip(main_tiles),
+  # Let the abundance legend use the space underneath the focal row labels.
+  D = free(p_main, type = "space", side = "r"), E = p_habitat,
+  design = "#F\nAB\nCD\n#E",
+  widths = grid::unit(c(2, 1), c("mm", "null")),
+  heights = grid::unit(c(48, 18, 1, 5), c("mm", "mm", "null", "mm")),
+  guides = "keep"
+)
+
+xx
+
+# Files are saved beside this document (or in your current working directory).
+ggsave(file.path(figure_dir, "si_f10.svg"), xx, device = svglite::svglite,
+       width = figure_width, height = figure_height, units = "cm", bg = "white")
+ggsave(file.path(figure_dir, "si_f10.png"), xx, width = figure_width, height = figure_height,
+       units = "cm", dpi = 300, bg = "white")
+
+# Trim blank rows at the top and bottom; preserve horizontal whitespace.
+source(file.path(dirname(figure_dir), "analysis", "trim_export_height.R"))
+trim_export_height(file.path(figure_dir, "si_f10.png"))
+
+```

@@ -1,5 +1,10 @@
 # directories
-project_dir = path.expand("~/Desktop/pfd_github")
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
 
@@ -13,6 +18,7 @@ library(patchwork)
 figure_theme = theme_bw(base_size = 12, base_family = "sans") +
   theme(
     axis.title = element_text(size = 12),
+    plot.margin = margin(0, 5.5, 0, 5.5),
     axis.text = element_text(size = 10, color = "black"),
     legend.title = element_text(size = 12),
     legend.text = element_text(size = 10),
@@ -22,7 +28,7 @@ figure_theme = theme_bw(base_size = 12, base_family = "sans") +
   )
 
 # df
-pfd_md = fread(file.path(data_dir, "pfd_md_26_09_09.tsv")) %>%
+pfd_md = fread(file.path(data_dir, "pfd_metadata.tsv")) %>%
   distinct(representative, .keep_all = T)
 
 # length
@@ -94,7 +100,7 @@ plot_gc = ggplot(gc, aes(x = source, y = gc, fill = source)) +
     linewidth = 0.8,
     color = "black"
   ) +
-  scale_fill_manual(values = c("MFD" = "navy", "DB" = "tomato")) +
+  scale_fill_manual(values = c("MFD" = "blue", "DB" = "gray")) +
   figure_theme +
   labs(x = NULL, y = "GC [%]", fill = NULL)
 plot_gc
@@ -123,7 +129,7 @@ plot_length_source = ggplot(length_df_source, aes(x = source, y = length, fill =
     breaks = c(1e3, 1e4, 1e5, 1e6, 1e7),
     labels = scales::label_log()
   ) +
-  scale_fill_manual(values = c("MFD" = "navy", "DB" = "tomato")) +
+  scale_fill_manual(values = c("MFD" = "blue", "DB" = "gray")) +
   figure_theme +
   labs(x = NULL, y = expression("Length (log"[10]*") [bp]"), fill = NULL)
 plot_length_source
@@ -153,7 +159,7 @@ plot_length_db = ggplot(length_df_db, aes(x = db, y = length, fill = db)) +
     labels = scales::label_log()
   ) +
   scale_fill_manual(values = c(
-    "MFD" = "navy",
+    "MFD" = "blue",
     "IMG/PR" = "grey55",
     "PLSDB" = "grey80"
   )) +
@@ -172,11 +178,18 @@ ggsave(
   filename = file.path(figure_dir, "si_f1.png"),
   plot = supplementary_stats +
     plot_annotation(
-      theme = theme(plot.margin = margin(0, 20, 0, 20, unit = "mm"))
-    ),
+      tag_levels = "A",
+      theme = theme(plot.margin = margin(0, 20, 0, 20, unit = "mm"),
+                    plot.tag = element_text(size = 20, face = "bold"))
+    ) & theme(plot.tag = element_text(size = 20, face = "bold")),
   width = 21,
   height = 7.5,
   units = "cm",
-  dpi = 600,
+  dpi = 300,
   bg = "white"
 )
+
+
+# Trim blank rows at the top and bottom; preserve horizontal whitespace.
+source(file.path(dirname(figure_dir), "analysis", "trim_export_height.R"))
+trim_export_height(file.path(figure_dir, "si_f1.png"))

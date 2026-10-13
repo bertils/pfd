@@ -1,5 +1,5 @@
 ---
-title: "si_s7"
+title: "si_f6"
 author: "Bertil Sørensen"
 date: "2026-09-21"
 output: html_document
@@ -7,7 +7,12 @@ output: html_document
 
 # directories
 ```{r}
-project_dir = path.expand("~/Desktop/pfd_github")
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
 ```
@@ -33,7 +38,7 @@ library(grid)
 
 # data frames
 ```{r}
-pfd_md = fread(file.path(data_dir, "pfd_md_26_09_15.tsv"))
+pfd_md = fread(file.path(data_dir, "pfd_metadata.tsv"))
 pfd_md2 = pfd_md %>%
   distinct(representative, .keep_all = T) %>%
   mutate(
@@ -46,7 +51,7 @@ pfd_md2 = pfd_md %>%
 ptu = pfd_md2 %>%
   mutate(ptu = na_if(ptu, "")) %>%
   filter(!is.na(ptu)) %>%
-  select(representative, ptu, mobs_Name, reps, args, replicon_type, defense_type, defense_subtype, taxa_gtdb, st_hab1) %>%
+  select(representative, ptu, mobs_Name, rps, args, replicon_type, defense_type, defense_subtype, taxa_gtdb, st_hab1) %>%
   filter(!is.na(ptu)) %>%
   group_by(ptu) %>%
   mutate(ptu_size = n()) %>% 
@@ -56,7 +61,7 @@ ptu = pfd_md2 %>%
 dptu = pfd_md2 %>%
   mutate(ptu = na_if(ptu, "")) %>%
   filter(!is.na(dptu)) %>%
-  select(representative, dptu, mobs_Name, reps, args, replicon_type, defense_type, defense_subtype, taxa_gtdb, st_hab1) %>%
+  select(representative, dptu, mobs_Name, rps, args, replicon_type, defense_type, defense_subtype, taxa_gtdb, st_hab1) %>%
   filter(!is.na(dptu)) %>%
   group_by(dptu) %>%
   mutate(dptu_size = n()) %>% 
@@ -287,7 +292,7 @@ mobs_no_na = pfd_md2 %>%
 
 # sylph quantification (no na)
 ```{r}
-sylph = fread(file.path(data_dir, "260921_sylph.tsv")) %>% 
+sylph = fread(file.path(data_dir, "sylph.tsv")) %>% 
   filter(origin == "plasmid")
 
   sylph2 = sylph %>%
@@ -943,7 +948,12 @@ library(scales)
 library(grid)
 
 # directories
-project_dir = path.expand("~/Desktop/pfd_github")
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
 
@@ -964,7 +974,7 @@ figure_theme = theme_bw(base_size = 12, base_family = "sans") +
 # count the assigned plasmids for each source
 ranks = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
 sources = c("MFD", "IMG/PR", "PLSDB")
-pfd = fread(file.path(data_dir, "pfd_md_26_09_15.tsv")) %>%
+pfd = fread(file.path(data_dir, "pfd_metadata.tsv")) %>%
   distinct(representative, .keep_all = TRUE)
 
 totals = pfd %>%
@@ -1057,16 +1067,24 @@ p_tax = ggplot(plot_data, aes(as.numeric(group), row, fill = weighted_jaccard)) 
 # page size and margins
 figure_width = 21
 figure_height = 14
-figure_margin = margin(3, 3, 3, 3, unit = "mm")
+figure_margin = margin(0, 3, 0, 3, unit = "mm")
 
 figure_plot = p_table + p_tax +
   plot_layout(widths = c(3, 2)) +
-  plot_annotation(theme = theme(plot.margin = figure_margin))
+  plot_annotation(tag_levels = "A",
+                  theme = theme(plot.margin = figure_margin,
+                                plot.tag = element_text(size = 20, face = "bold"))) &
+  theme(plot.tag = element_text(size = 20, face = "bold"))
 
 # save figure
 dir.create(figure_dir, showWarnings = FALSE, recursive = TRUE)
-ggsave(file.path(figure_dir, "si_s7.png"), figure_plot,
+ggsave(file.path(figure_dir, "si_f6.png"), figure_plot,
        width = figure_width, height = figure_height,
-       units = "cm", dpi = 600, bg = "white")
+       units = "cm", dpi = 300, bg = "white")
+
+
+# Trim blank rows at the top and bottom; preserve horizontal whitespace.
+source(file.path(dirname(figure_dir), "analysis", "trim_export_height.R"))
+trim_export_height(file.path(figure_dir, "si_f6.png"))
 
 ```

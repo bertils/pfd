@@ -1,0 +1,213 @@
+---
+title: "f3"
+author: "Bertil Sørensen"
+date: "2026-09-30"
+output: html_document
+---
+
+
+```{r}
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
+library(dplyr)
+library(tidyr)
+library(data.table)
+library(ggplot2)
+library(patchwork)
+library(readxl)
+
+
+fancy_scientific <- function(l) {
+     # turn in to character string in scientific notation
+     l <- format(l, scientific = TRUE)
+     # quote the part before the exponent to keep all the digits
+     l <- gsub("^(.*)e", "'\\1'e", l)
+ # remove + after exponent, if exists. E.g.: (3x10^+2 -> 3x10^2)
+    l <- gsub("e\\+","e",l)
+     # turn the 'e+' into plotmath format
+     l <- gsub("e", "%*%10^", l)
+ # convert 1x10^ or 1.000x10^ -> 10^
+ l <- gsub("\\'1[\\.0]*\\'\\%\\*\\%", "", l)
+     # return this as an expression
+     parse(text=l)
+}
+
+cleanup = theme(panel.grid.major = element_blank(), 
+                panel.grid.minor = element_blank(), 
+                panel.background = element_blank(),
+                axis.text.x=element_text(color='black',size = 11),
+                axis.text.y=element_text(color='black',size = 11),
+                panel.border=element_rect(color='black', fill=NA),
+                axis.line = element_line(color ="black"),
+                axis.title=element_text(size = 12),
+                plot.title=element_text(size=(rel(1)), hjust=0.5),strip.background = element_blank(),
+                strip.text.x = element_text(size = 11, colour = "black"))
+
+
+source_colours = c(DB = "gray", MFD = "blue")
+```
+
+
+```{r}
+y = read_xlsx(file.path(data_dir, "260914-updated-rp-metadata.xlsx"))
+ripus=fread(file.path(data_dir, "merged.faa-ripdb.ultra.sensitive-with-real-names.tsv"),sep="\t")%>%select(-gene_name_proposed)%>%merge(.,y,by="gene_fam")%>%mutate(orf=gsub(" (.*?)$","",qtitle))%>% mutate(contig=gsub("_[^_]+$","",orf))
+md = fread(file.path(data_dir, "pfd_metadata.tsv"))
+merged = ripus %>% merge(.,md,by.x="contig",by.y="representative",suffixes=c("_aln","_plas")) %>% mutate(group=case_when(grepl("^MFD",db)~"MFD",.default = "DB"))
+with_cutoff = merged %>% subset(pident>40 & length_aln/qlen > 0.5)
+```
+
+
+fig 3a
+```{r}
+# Match the RP order and source colours in Figure 2.
+gene_factors = read_xlsx(file.path(data_dir, "for_making_hierarchy.xlsx")) %>%
+  mutate(gene_name_proposed = trimws(gene_name_proposed))
+rp_order = md %>%
+  filter(db != "MFD", !is.na(rps)) %>%
+  separate_rows(rps, sep = ",\\s*") %>%
+  distinct(representative, rps) %>%
+  count(rps, sort = TRUE) %>%
+  left_join(gene_factors, by = c("rps" = "gene_name_proposed")) %>%
+  filter(!is.na(reduced_name)) %>%
+  pull(reduced_name)
+
+pdf = merged %>%
+  filter(length_plas < 1e7) %>%
+  select(contig, gc, gene_name_proposed, length_plas, group) %>%
+  distinct() %>%
+  mutate(gene_name_proposed = trimws(gene_name_proposed)) %>%
+  left_join(gene_factors, by = "gene_name_proposed") %>%
+  filter(!reduced_name %in% c("arc", "repA1_leader")) %>%
+  mutate(reduced_name = factor(reduced_name, levels = unique(rp_order)),
+         group = factor(group, levels = c("DB", "MFD"))) %>%
+  arrange(group)
+
+point_size_a = 1.6
+
+a = ggplot(pdf, aes(gc, length_plas, colour = group)) +
+  geom_point(size = point_size_a) +
+  facet_wrap(vars(reduced_name), ncol = 3) +
+  scale_y_log10(labels = fancy_scientific) +
+  scale_colour_manual(values = source_colours) +
+  labs(x = "GC [%]", y = "Plasmid length [bp]", colour = NULL) +
+  cleanup +
+  guides(colour = guide_legend(override.aes = list(size = point_size_a))) +
+  theme(legend.position = "top", legend.text = element_text(size = 12),
+        legend.justification = c(0.5, 0), legend.box.just = "center",
+        legend.margin = margin(0, 0, 0, 0),
+        legend.box.spacing = grid::unit(0, "mm"),
+        legend.key.height = grid::unit(3, "mm"),
+        legend.background = element_blank(), legend.key = element_blank(),
+        panel.spacing = grid::unit(0.1, "lines"))
+a
+```
+
+# fig 3b
+```{r}
+# Order COGs within each category by decreasing MFD composition.
+cog_groups = c("Cellular processes and signaling", "Information storage and processing",
+               "Metabolism", "Poorly characterized")
+cog_labels = c("Cellular processes\nand signaling", "Information storage\nand processing",
+               "Metabolism", "Poorly characterized")
+cog_plot_avg_all = fread(file.path(data_dir, "cog_plot_avg.tsv")) %>%
+  filter(!is.na(cog_letter), cog_letter != "total_row", !is_total) %>%
+  mutate(cog_group = factor(cog_group, levels = cog_groups[c(3, 1, 2, 4)]),
+         percent_plot = if_else(source == "MFD", abs(percent_plot), -abs(percent_plot)))
+cog_order = cog_plot_avg_all %>%
+  filter(source == "MFD") %>%
+  arrange(cog_group, desc(abs(percent_plot))) %>%
+  pull(cog_letter)
+cog_plot_avg_all = cog_plot_avg_all %>%
+  mutate(cog_letter = factor(cog_letter, levels = rev(unique(cog_order))))
+
+cogp = ggplot(cog_plot_avg_all, aes(percent_plot, cog_letter, fill = source)) +
+  geom_col(colour = "black", linewidth = 0.3, width = 0.9) +
+  geom_text(aes(x = percent_plot + if_else(percent_plot < 0, -0.35, 0.35),
+                label = sprintf("%.1f", abs(percent_plot)),
+                hjust = if_else(percent_plot < 0, 1, 0)),
+            size = 10 / .pt, show.legend = FALSE) +
+  geom_vline(xintercept = 0, linewidth = 0.5) +
+  scale_x_continuous(breaks = seq(-20, 20, 5), minor_breaks = NULL,
+                     labels = abs, limits = c(-20, 20), expand = expansion(mult = 0)) +
+  scale_fill_manual(values = source_colours, name = NULL) +
+  facet_grid(rows = vars(cog_group), scales = "free_y", space = "free_y",
+             labeller = labeller(cog_group = setNames(cog_labels, cog_groups))) +
+  labs(x = "COG composition [%]", y = NULL) +
+  cleanup +
+  theme(panel.grid.major.x = element_line(colour = "grey85", linewidth = 0.3),
+        panel.grid.major.y = element_line(colour = "grey85", linewidth = 0.3),
+        panel.grid.minor = element_blank(),
+        legend.position = "top", legend.text = element_text(size = 12),
+        legend.justification = c(0.5, 0), legend.box.just = "center",
+        legend.margin = margin(0, 0, 0, 0),
+        legend.box.spacing = grid::unit(0, "mm"),
+        legend.key.height = grid::unit(3, "mm"),
+        legend.key = element_blank(),
+        strip.text.y.right = element_text(angle = 0, hjust = 0, size = 11),
+        panel.spacing = grid::unit(0.1, "lines"))
+cogp
+```
+
+fig 3c
+```{r}
+# Show non-significant results in grey and label only significant results.
+three_rps = fread(file.path(data_dir, "three_RPs_stats_enrich.tsv")) %>%
+  mutate(significant = !is.na(padj) & padj < 0.05,
+         cog_group = factor(cog_group, levels = cog_groups),
+         gene = factor(gene, levels = c("orc", "pri", "rep3_1")))
+
+o = ggplot(three_rps, aes(log2(OR), -log10(padj), colour = cog_group, shape = gene)) +
+  geom_vline(xintercept = 0, linetype = 2, linewidth = 0.4) +
+  geom_hline(yintercept = -log10(0.05), linetype = 2, linewidth = 0.4) +
+  geom_point(data = filter(three_rps, !significant), colour = "grey70",
+             size = 2, show.legend = FALSE) +
+  geom_point(data = filter(three_rps, significant), size = 2, show.legend = TRUE) +
+  ggrepel::geom_text_repel(data = filter(three_rps, significant), aes(label = cog_letter),
+                          size = 11 / .pt, show.legend = FALSE, seed = 1,
+                          segment.colour = NA) +
+  scale_colour_manual(values = setNames(c("#000000", "#3569B0", "#B52B3A", "#E69F00"), cog_groups),
+                       breaks = cog_groups[c(3, 1, 2, 4)],
+                       labels = cog_labels[c(3, 1, 2, 4)], drop = FALSE) +
+  scale_shape_manual(values = c(orc = 16, pri = 17, rep3_1 = 15), drop = FALSE) +
+  guides(shape = guide_legend(order = 1, override.aes = list(colour = "black")),
+         colour = guide_legend(order = 2, override.aes = list(shape = 16,
+                                                                colour = c("#B52B3A", "#000000", "#3569B0", "#E69F00")),
+                               theme = theme(legend.key.spacing.y = grid::unit(1, "mm")))) +
+  labs(x = expression(log[2]*"(odds ratio)"),
+       y = expression(-log[10]*"(adjusted P)"), colour = "COG group", shape = "RP") +
+  cleanup +
+  theme(legend.position = "right", legend.box = "vertical", legend.box.just = "left",
+        legend.text = element_text(size = 11, margin = margin(t = 0.5, b = 0.5, unit = "mm")),
+        legend.title = element_text(size = 11, hjust = 0,
+                                   margin = margin(l = 2, b = 0.5, unit = "mm")),
+        legend.key = element_blank(), legend.margin = margin(0, 0, 0, 0),
+        legend.box.spacing = grid::unit(1.5, "mm"),
+        legend.key.width = grid::unit(4, "mm"),
+        legend.key.height = grid::unit(4, "mm"),
+        legend.key.spacing.y = grid::unit(0.5, "mm"),
+        legend.spacing.y = grid::unit(4, "mm"),
+        plot.margin = margin(10, 5.5, 5.5, 5.5))
+o
+```
+
+
+# Combined figure
+```{r}
+# A spans both rows. B and C share a column, so patchwork aligns their panels.
+layout = "
+AB
+AC
+"
+f3 = wrap_plots(A = a, B = free(cogp, type = "space", side = "r"), C = o, design = layout,
+                widths = c(1.15, 1), heights = c(1.65, 1)) +
+  plot_annotation(theme = theme(plot.margin = margin(4, 4, 4, 4, unit = "mm")))
+f3
+
+ggsave(file.path(figure_dir, "f3.png"), f3,
+       width = 24, height = 21, units = "cm", dpi = 600, bg = "white")
+```
+

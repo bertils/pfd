@@ -1,5 +1,10 @@
 # directories
-project_dir = path.expand("~/Desktop/pfd_github")
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
 
@@ -8,6 +13,7 @@ library(dplyr)
 library(data.table)
 library(readxl)
 library(ggplot2)
+library(svglite)
 library(sf)
 library(grid)
 
@@ -38,7 +44,7 @@ raw_pfd = bind_rows(ont, illumina) %>%
   arrange(technology == "ONT")
 
 
-shp_path = file.path(data_dir, "CNTR_RG_01M_2024_4326.shp")
+shp_path = file.path(data_dir, "CNTR_RG_01M_2024_4326.shp", "CNTR_RG_01M_2024_4326.shp")
 
 dk = st_read(shp_path) %>%
   st_make_valid() %>%
@@ -57,11 +63,11 @@ land_col = "grey90"
 
 # bornholm
 map_bh = ggplot() +
-  geom_sf(data = dk, fill = "grey90", colour = "black", linewidth = 0.6) +
+  geom_sf(data = dk, fill = "grey90", colour = "black", linewidth = 0.25) +
   geom_point(
     data = raw_pfd,
     aes(x = longitude, y = latitude, colour = mfd_sampletype),
-    size = 3.5,
+    size = 1,
     alpha = 1,
     shape = 16
   ) +
@@ -71,8 +77,8 @@ map_bh = ggplot() +
     shape = 21,
     fill = NA,
     colour = "darkred",
-    size = 3.5,
-    stroke = 1.1
+    size = 1,
+    stroke = 0.4
   ) +
   scale_colour_manual(values = sampletype.palette) +
   coord_sf(
@@ -89,28 +95,29 @@ map_bh = ggplot() +
     x = 14.75,
     y = 54.6,
     label = "Bornholm",
-    size = 12 / ggplot2::.pt
+    size = 5 / ggplot2::.pt
   ) +
-  theme_minimal(base_size = 12, base_family = "sans") +
+  theme_minimal(base_size = 5, base_family = "sans") +
   theme(
     panel.background = element_rect(fill = "white", colour = NA),
     plot.background = element_rect(fill = "transparent", colour = NA),
-    panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
-    panel.grid = element_line(color = col_grid, linewidth = 0.8),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4),
+    panel.grid = element_line(color = col_grid, linewidth = 0.3),
     axis.title = element_blank(),
-    axis.text = element_text(size = 10, colour = "black"),
+    axis.text = element_text(size = 5, colour = "black"),
+    axis.text.x = element_text(size = 5, colour = "black", hjust = 1),
     legend.position = "none",
     plot.margin = margin(0, 0, 0, 0)
   )
 
 # denmark
 map_dk = ggplot() +
-  geom_sf(data = dk, fill = "grey90", colour = "black", linewidth = 0.6) +
+  geom_sf(data = dk, fill = "grey90", colour = "black", linewidth = 0.25) +
   
   geom_point(
     data = raw_pfd,
     aes(x = longitude, y = latitude, colour = mfd_sampletype),
-    size = 3.5,
+    size = 1,
     alpha = 1,
     shape = 16
   ) +
@@ -120,18 +127,18 @@ map_dk = ggplot() +
     aes(x = longitude, y = latitude, shape = "ONT"),
     fill = NA,
     colour = "darkred",
-    size = 3.5,
-    stroke = 1.1
+    size = 1,
+    stroke = 0.4
   ) +
   
   scale_colour_manual(
     values = sampletype.palette,
     name = NULL,
     guide = guide_legend(
-      order = 1,
+      order = 1, nrow = 1,
       override.aes = list(
         shape = 16,
-        size = 3.5,
+        size = 1,
         fill = NA,
         stroke = 0
       )
@@ -146,8 +153,8 @@ map_dk = ggplot() +
       override.aes = list(
         colour = "darkred",
         fill = NA,
-        size = 3.5,
-        stroke = 1.3
+        size = 1,
+        stroke = 0.4
       )
     )
   ) +
@@ -164,29 +171,32 @@ map_dk = ggplot() +
     ggplotGrob(map_bh),
     xmin = 10.7,
     ymin = 56.9,
-    xmax = 13.0,
+    xmax = 12.9,
     ymax = 58.0
   ) +
   
-  theme_minimal(base_size = 12, base_family = "sans") +
+  theme_minimal(base_size = 5, base_family = "sans") +
   theme(
     panel.background = element_rect(fill = bg_col, colour = NA),
     plot.background = element_rect(fill = "transparent", colour = NA),
-    panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
-    panel.grid = element_line(color = col_grid, linewidth = 0.8),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4),
+    panel.grid = element_line(color = col_grid, linewidth = 0.3),
     
     axis.title = element_blank(),
-    axis.text = element_text(size = 10, colour = "black"),
+    axis.text = element_text(size = 5, colour = "black"),
     
-    legend.position = c(0.23, 0.90),
+    legend.position = c(0.035, 0.94),
+    legend.justification = c(0, 1),
+    legend.box.just = "left",
     legend.box = "vertical",
     legend.direction = "horizontal",
     legend.title = element_blank(),
-    legend.text = element_text(size = 10, colour = "black"),
+    legend.text = element_text(size = 5, colour = "black"),
     
     legend.box.spacing = unit(-0.25, "cm"),
-    legend.spacing.y = unit(0.2, "cm"),
-    legend.key.size = unit(0.35, "cm"),
+    legend.spacing.y = unit(1, "mm"),
+    legend.key.size = unit(0.15, "cm"),
+    legend.spacing.x = unit(0, "mm"),
     legend.margin = margin(0, 0, 0, 0, unit = "cm")
   )
 
@@ -194,9 +204,9 @@ map_dk = ggplot() +
 map_dk
 
 # save figure
-figure_width = 21
-figure_height = 24
-figure_margin = margin(5, 5, 5, 5, unit = "mm")
+figure_width = 6.85
+figure_height = 6.80
+figure_margin = margin(1, 1, 1, 1, unit = "mm")
 
 dir.create(figure_dir, showWarnings = FALSE, recursive = TRUE)
 
@@ -209,3 +219,9 @@ ggsave(
   dpi = 600,
   bg = "white"
 )
+
+# save svg
+ggsave(file.path(figure_dir, "f1_denmark_map.svg"), map_dk + theme(plot.margin = figure_margin),
+       device = svglite, fix_text_size = FALSE,
+       width = figure_width, height = figure_height,
+       units = "cm", bg = "white")

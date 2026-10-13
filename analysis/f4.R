@@ -1,5 +1,10 @@
 # directories
-project_dir = path.expand("~/Desktop/pfd_github")
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
 
@@ -13,6 +18,7 @@ library(ggtreeExtra)
 library(ggnewscale)
 library(grid)
 library(stringr)
+library(tidyverse)
 
 # theme
 figure_theme = theme_bw(base_size = 12, base_family = "sans") +
@@ -27,7 +33,8 @@ figure_theme = theme_bw(base_size = 12, base_family = "sans") +
   )
 
 # data
-pfd_md = fread(file.path(data_dir, "pfd_md_26_09_09.tsv"))
+pfd_md = fread(file.path(data_dir, "pfd_metadata.tsv")) %>%
+  separate_rows(member_id, sep = ",\\s*")
 tree = read.tree(file.path(data_dir, "NZ_CP106969.1_91_cluster.faa.id80_c50.msa.contree"))
 
 orc_clusters = fread(file.path(data_dir, "NZ_CP106969.1_91_cluster.faa.id80_c50_cluster.tsv"), header = F) %>%
@@ -47,9 +54,9 @@ clusters_combined = orc_clusters %>%
 
 orc_plasmids = pfd_md %>%
   inner_join(clusters_combined %>% select(orf_member_id, member_id), by = "member_id") %>%
-  select(orf_member_id, member_id, gc, taxa_gtdb) %>%
+  select(orf_member_id, member_id, gc, taxa_gtdb, source) %>%
   rename(label = orf_member_id) %>%
-  mutate(source = ifelse(grepl("MFD", member_id), "MFD", "DB")) 
+  mutate(source = ifelse(grepl("MFD", member_id), "MFD", "DB"))
 
 
 orc_plasmids = orc_plasmids %>%
@@ -159,6 +166,7 @@ c_p4 = c_p_tree +
     name = "Bootstrap support",
     values = c(">90" = "black", ">70" = "grey55", "<=70" = "darkred"),
     breaks = c(">90", ">70", "<=70"),
+    labels = c(">90", "70 ≤ x ≤ 90", "<70"),
     guide = guide_legend(order = 4, override.aes = list(size = 4))
   ) +
   figure_theme +
@@ -218,7 +226,7 @@ scale_bar = ggplotGrob(scale_plot)
 figure_width = 21
 figure_margin = margin(0, 0, 0, 0, unit = "mm")
 c_p4 = c_p4 + theme(plot.margin = figure_margin)
-
+c_p4
 # get the tree part of the figure
 figure_plot = ggplotGrob(c_p4)
 part_names = figure_plot$layout$name

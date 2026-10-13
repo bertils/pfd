@@ -1,5 +1,10 @@
 # directories
-project_dir = path.expand("~/Desktop/pfd_github")
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
 
@@ -12,7 +17,7 @@ library(patchwork)
 library(scales)
 
 # df 
-pfd_md = fread(file.path(data_dir, "pfd_md_26_09_09.tsv")) 
+pfd_md = fread(file.path(data_dir, "pfd_metadata.tsv")) 
 pfd_md_rd = pfd_md %>%
   mutate(source = if_else(grepl("MFD", member_id), "MFD", "DB")) %>%
   select(representative, member_id, db, source, ptu, dptu, length, gc) %>%
@@ -33,15 +38,16 @@ dptu_df = pfd_md_rd %>%
   ungroup()
 
 # colours
-col_db = "#ef6351"
-col_shared = "grey50"
-col_mfd = "#1f4e8c"
+col_db = "gray"
+col_shared = "#FFD700"
+col_mfd = "blue"
 
 # theme
 figure_theme = theme_bw(base_size = 12, base_family = "sans") +
   theme(
     strip.text = element_text(size = 12, face = "plain"),
     axis.title = element_text(size = 12),
+    plot.margin = margin(0, 5.5, 0, 5.5),
     axis.text = element_text(size = 10, color = "black"),
     legend.title = element_text(size = 12),
     legend.text = element_text(size = 10),
@@ -317,9 +323,14 @@ dptu_bar = ggplot(dptu_size_plot, aes(x = size_bin, y = n, fill = dptu_category)
 dptu_bar
 
 # combine plots
-left_plots = (dptu_cumu / dptu_bar) + plot_layout(heights = c(2, 1))
+# Remove vertical margins from the nested layouts as well as each panel.
+block_theme = theme(plot.margin = margin(0, 5.5, 0, 5.5))
+left_plots = (dptu_cumu / dptu_bar) +
+  plot_layout(heights = c(2, 1)) +
+  plot_annotation(theme = block_theme)
 right_plots = ((p_top / p_mid / p_bottom) +
-  plot_layout(heights = c(1, 1, 1))) & theme(legend.position = "none")
+  plot_layout(heights = c(1, 1, 1)) +
+  plot_annotation(theme = block_theme)) & theme(legend.position = "none")
 
 # a small gap between the two blocks
 final_dptu = (
@@ -342,6 +353,11 @@ ggsave(
   width = 21,
   height = 14,
   units = "cm",
-  dpi = 600,
+  dpi = 300,
   bg = "white"
 )
+
+
+# Trim blank rows at the top and bottom; preserve horizontal whitespace.
+source(file.path(dirname(figure_dir), "analysis", "trim_export_height.R"))
+trim_export_height(file.path(figure_dir, "si_f4.png"))

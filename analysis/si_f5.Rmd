@@ -9,7 +9,12 @@ output: html_document
 
 # directories
 ```{r}
-project_dir = path.expand("~/Desktop/pfd_github")
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
 ```
@@ -35,20 +40,20 @@ library(grid)
 
 # data frames
 ```{r}
-pfd_md = fread(file.path(data_dir, "pfd_md_26_09_15.tsv"))
+pfd_md = fread(file.path(data_dir, "pfd_metadata.tsv"))
 pfd_md2 = pfd_md %>%
-  distinct(representative, .keep_all = T) %>%
-  mutate(
-    mobs_Name = str_replace_all(mobs_Name, ",\\s*", ", "), # correct this tomorrow
-    args = str_replace_all(args, ",\\s*", ", "),
-    MGEs = str_replace_all(MGEs, ";\\s*", ", ")
-   ) #%>%
+  distinct(representative, .keep_all = T) #%>%
+  #mutate(
+  #  mobs_Name = str_replace_all(mobs_Name, ",\\s*", ", "), # correct this tomorrow
+  #  args = str_replace_all(args, ",\\s*", ", "),
+  #  MGEs = str_replace_all(MGEs, ";\\s*", ", ")
+  # ) #%>%
   #filter(db == "MFD") # uncomment to filter for mfd
   
 ptu = pfd_md2 %>%
   mutate(ptu = na_if(ptu, "")) %>%
   filter(!is.na(ptu)) %>%
-  select(representative, ptu, mobs_Name, reps, args, replicon_type, defense_type, defense_subtype, taxa_gtdb, st_hab1) %>%
+  select(representative, ptu, mobs_Name, rps, args, replicon_type, defense_type, defense_subtype, taxa_gtdb, st_hab1) %>%
   filter(!is.na(ptu)) %>%
   group_by(ptu) %>%
   mutate(ptu_size = n()) %>% 
@@ -58,7 +63,7 @@ ptu = pfd_md2 %>%
 dptu = pfd_md2 %>%
   mutate(ptu = na_if(ptu, "")) %>%
   filter(!is.na(dptu)) %>%
-  select(representative, dptu, mobs_Name, reps, args, replicon_type, defense_type, defense_subtype, taxa_gtdb, st_hab1) %>%
+  select(representative, dptu, mobs_Name, rps, args, replicon_type, defense_type, defense_subtype, taxa_gtdb, st_hab1) %>%
   filter(!is.na(dptu)) %>%
   group_by(dptu) %>%
   mutate(dptu_size = n()) %>% 
@@ -289,10 +294,10 @@ mobs_no_na = pfd_md2 %>%
 
 # sylph quantification (no na)
 ```{r}
-sylph = fread(file.path(data_dir, "260921_sylph.tsv")) %>% 
+sylph = fread(file.path(data_dir, "sylph.tsv")) %>% 
   filter(origin == "plasmid")
 
-  sylph2 = sylph %>%
+sylph2 = sylph %>%
     filter(rel_abund > 0) 
 
 mfd_meta = read_excel(file.path(data_dir, "2025-05-28_mfd_db.xlsx"))
@@ -493,7 +498,7 @@ imgpr = fread(file.path(data_dir, "IMGPR_plasmid_data.tsv"))
 imgpr2 = imgpr %>% 
   select(plasmid_id, ecosystem) %>%
   rename(member_id = plasmid_id) %>%
-  right_join(pfd_md %>% select(member_id, representative, ptu, dptu), by = "member_id") %>%
+  right_join(pfd_md %>% separate_rows(member_id, sep = ",\\s*") %>% select(member_id, representative, ptu, dptu), by = "member_id") %>%
    mutate(
     ecosystem = trimws(ecosystem),
     ecosystem = na_if(ecosystem, "")
@@ -947,6 +952,7 @@ library(grid)
 figure_theme = theme_bw(base_size = 12, base_family = "sans") +
   theme(
     axis.title = element_text(size = 12),
+    plot.margin = margin(0, 0, 0, 0),
     axis.text = element_text(size = 10, color = "black"),
     plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
     legend.title = element_text(size = 12),
@@ -1078,9 +1084,9 @@ traits_plot = wrap_plots(
 ) & theme(legend.position = "right")
 
 # page size and margins
-figure_width = 21
+figure_width = 22
 figure_height = 18
-figure_margin = margin(3, 3, 3, 3, unit = "mm")
+figure_margin = margin(0, 0, 0, 0, unit = "mm")
 traits_plot = traits_plot + plot_annotation(theme = theme(plot.margin = figure_margin))
 
 traits_plot
@@ -1091,8 +1097,13 @@ ggsave(
   filename = file.path(figure_dir, "si_f5.png"),
   plot = traits_plot,
   width = figure_width, height = figure_height,
-  units = "cm", dpi = 600, bg = "white"
+  units = "cm", dpi = 300, bg = "white"
 )
+
+
+# Trim blank rows at the top and bottom; preserve horizontal whitespace.
+source(file.path(dirname(figure_dir), "analysis", "trim_export_height.R"))
+trim_export_height(file.path(figure_dir, "si_f5.png"))
 
 ```
 

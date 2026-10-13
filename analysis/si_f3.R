@@ -1,5 +1,10 @@
 # directories
-project_dir = path.expand("~/Desktop/pfd_github")
+# Run from the repository root, or knit from analysis/.
+source(if (file.exists("analysis/project_setup.R")) {
+  "analysis/project_setup.R"
+} else {
+  "project_setup.R"
+})
 data_dir = file.path(project_dir, "data")
 figure_dir = file.path(project_dir, "figures")
 
@@ -13,6 +18,7 @@ library(ggVennDiagram)
 figure_theme = theme_bw(base_size = 12, base_family = "sans") +
   theme(
     axis.title = element_text(size = 12),
+    plot.margin = margin(0, 5.5, 0, 5.5),
     axis.text = element_text(size = 10, color = "black"),
     legend.title = element_text(size = 12),
     legend.text = element_text(size = 10),
@@ -22,7 +28,7 @@ figure_theme = theme_bw(base_size = 12, base_family = "sans") +
   )
 
 # df
-pfd_md = fread(file.path(data_dir, "pfd_md_26_09_09.tsv")) %>%
+pfd_md = fread(file.path(data_dir, "pfd_metadata.tsv")) %>%
   distinct(representative, .keep_all = TRUE) %>%
   select(member_id, representative, db, ptu) %>%
   filter(!is.na(ptu))
@@ -79,6 +85,11 @@ ggsave(
   width = 21,
   height = 9,
   units = "cm",
-  dpi = 600,
+  dpi = 300,
   bg = "white"
 )
+
+
+# Trim blank rows at the top and bottom; preserve horizontal whitespace.
+source(file.path(dirname(figure_dir), "analysis", "trim_export_height.R"))
+trim_export_height(file.path(figure_dir, "si_f3.png"))
