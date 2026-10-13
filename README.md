@@ -39,4 +39,4 @@ The following files exceed GitHub's 100 MiB file-size limit and are not included
 
 These files can be found at [10.5281/zenodo.22944851](https://doi.org/10.5281/zenodo.22944851). Download the required tables into `data/` before running analyses that use them.
 
-If you use Circure, please cite **doi:** [10.64898/2026.10.06.756670](https://doi.org/10.64898/2026.10.06.756670).
+If you use circure, please cite **doi:** [10.64898/2026.10.06.756670](https://doi.org/10.64898/2026.10.06.756670).
