@@ -31,7 +31,7 @@ The following files exceed GitHub's 100 MiB file-size limit and are not included
 
 | File | Size (GB) |
 | --- | ---: |
-| `data/260515_new_eggnog_df.tsv` | 4.1 |
+| `data/orfs_mfd_and_reference.tsv` | 2.9 |
 | `data/IMGPR_plasmid_data.tsv` | 0.2 |
 | `data/merged.faa-ripdb.ultra.sensitive-with-real-names.tsv` | 0.2 |
 | `data/raw_illumina_plasmid_prediction.tsv` | 0.3 |

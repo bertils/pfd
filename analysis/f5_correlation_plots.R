@@ -37,7 +37,7 @@ min_samples = 5
 sylph_mp = fread(file.path(data_dir, "sylph.tsv"))
 
 # code for supplementary table
-pc = fread(file.path(data_dir, "260515_new_eggnog_df.tsv"),
+pc = fread(file.path(data_dir, "orfs_mfd_and_reference.tsv"),
             select = c("member_id", "representative", "translation_table"))
 pc_archaea = pc %>%
    distinct(member_id, .keep_all = TRUE) %>%

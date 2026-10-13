@@ -28,7 +28,7 @@ pfd_md = fread(file.path(data_dir, "pfd_metadata.tsv"))
 
 # correlation
 ```{r}
-pc = fread(file.path(data_dir, "260515_new_eggnog_df.tsv"),
+pc = fread(file.path(data_dir, "orfs_mfd_and_reference.tsv"),
            select = c("member_id", "representative", "translation_table"))
 pc_arc = pc %>%
   distinct(member_id, .keep_all = T) %>%
