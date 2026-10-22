@@ -23,7 +23,7 @@ Filenames follow the order and numbering of the paper. Files beginning with `si_
 
 **Figure 5B was made manually, so no code or figure file for that panel is included in this repository.**
 
-The trait summaries used in Figure 2D are computed in `analysis/si_f5.Rmd` and supplied as `data/traits_all.tsv`. The supplementary correlation-table calculation is included in `analysis/f5_correlation_plots.R`. Figure 3's supporting input files are stored directly in `data/`.
+The trait summaries used in Figure 2D are computed in `analysis/si_f5.Rmd` and supplied as `data/traits_all.tsv`. The supplementary correlation-table calculation is included in `analysis/f5_correlation_plots.R`. Figure 3's supporting input files are stored directly in `data/`. The nucleotide sequences (.fasta) and predicted protein sequences (.faa) of the putative Methanosarcina host MAG, MFD01716.bin.1.47, are available on Zenodo.
 
 ## Large input tables omitted from GitHub
 
